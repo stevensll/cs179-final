@@ -1,11 +1,16 @@
-/* CPU reference pipeline (single-threaded). One function per stage; each carries
- * a note on the GPU parallelization strategy (spec requirement). MVP keeps all
- * stages in one translation unit — see TODO.md for the planned split. */
+/* CPU reference pipeline (single-threaded), stage-for-stage mirror of the GPU
+ * detector (src/gpu/gpu_pipeline.cu): log-frequency STFT, simultaneous-update
+ * KL-NMF/PFNMF, pitch-shifted templates, regularized correlation distance,
+ * banded subsequence DTW, selectivity scoring. Each stage carries a note on
+ * the GPU parallelization strategy (spec requirement). Kept in algorithmic
+ * lockstep so GPU scores can be validated against it (float tolerances in
+ * docs/TECHNICAL.md; same seeded inits, so differences are summation order). */
 
 #pragma once
 
 #include <vector>
 
+#include "../common/match_info.hpp"
 #include "../common/params.hpp"
 
 namespace sd {
@@ -20,31 +25,35 @@ struct Mat {
     float at(int r, int c) const { return v[(size_t)r * cols + c]; }
 };
 
-/* Magnitude spectrogram, N_BINS x frames (Hann, FFT_SIZE/HOP from params). */
+/* Magnitude spectrogram (ANALYSIS_BINS x frames): Hann STFT, then the
+ * triangular log-frequency filterbank when MEL_BINS > 0 (same filterbank
+ * construction as the GPU side). */
 Mat stft_magnitude(const std::vector<float>& x);
 
-/* KL-divergence multiplicative-update NMF: V ~ W*H. W (M x R), H (R x N) must be
- * pre-initialized (caller seeds them; keeps CPU/GPU runs comparable). The first
- * n_fixed columns of W are frozen (n_fixed = 0 -> plain NMF, = RANK_K -> PFNMF). */
+/* KL-divergence multiplicative-update NMF, SIMULTANEOUS (Lee-Seung) variant:
+ * both numerators come from one shared Z = V ./ (WH + eps) and the pre-update
+ * W/H — mirrors gpu_nmf_batched, which fuses Z into a single custom kernel.
+ * The first n_fixed columns of W are frozen (0 = plain NMF, RANK_K = PFNMF).
+ * W and H must be pre-seeded by the caller. */
 void nmf(const Mat& V, Mat& W, Mat& H, int iters, int n_fixed);
 
-/* Frequency-axis rescale of templates by 2^(semitones/12) (linear interp). */
-Mat pitch_shift_templates(const Mat& W, float semitones);
+/* Query-independent candidate-side product (mirrors gpu_candidate_templates):
+ * unit-norm spectral templates Wo and z-normalized activations Zo. */
+struct CpuCandidateTemplates {
+    Mat Wo;  /* ANALYSIS_BINS x RANK_K */
+    Mat Zo;  /* RANK_K x No */
+    int No = 0;
+};
+CpuCandidateTemplates candidate_templates(const Mat& Vc, int iters);
 
-/* Scale each column of W to unit L2 norm; if H is non-null, scale row k of H by
- * the removed norm (preserves W*H). Keeps activation scales comparable across
- * pitch shifts (extreme shifts shrink template norms and bias the distance). */
-void normalize_columns(Mat& W, Mat* H);
+/* Per-pair scoring (mirrors gpu_score_candidates for one candidate): PFNMF at
+ * every pitch shift against the query, banded subsequence DTW over every
+ * candidate window, pitch-selectivity + selection-bias calibration. */
+MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct,
+                          int iters, bool clip);
 
-/* D(i,j) = 1 - Pearson r between column i of Ho and column j of Hs, using the
- * first RANK_K rows of each. */
-Mat correlation_distance(const Mat& Ho, const Mat& Hs);
-
-/* Subsequence DTW (paper eq. 2): returns min over end frames of the last row of
- * the cost matrix, normalized by alignment path length. */
-float dtw_min_cost(const Mat& D);
-
-/* Deterministic uniform(0.01, 1) init shared by CPU and GPU runs. */
+/* Deterministic uniform(0.01, 1) init — same mt19937 stream as the GPU host
+ * init (seeds 42/43 candidate, 100+p/200+p per PFNMF shift). */
 void seed_matrix(Mat& m, unsigned seed);
 
 }  /* namespace sd */

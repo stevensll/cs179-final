@@ -1,0 +1,82 @@
+==PROF== Connected to process 1145750 (/home/slei3/cs179-final/build/gpu_detect)
+==PROF== Profiling "distance_batched_kernel": 0%....50%....100% - 13 passes
+query: Move On Up.wav (3655904 samples)
+  MoveCopy.wav                 score 0.9692 (shift -4.25 st, cand @84s -> query @31s)  [gpu0 t=3.4s]
+
+ranking (best match first):
+1. MoveCopy.wav                 score 0.9692 (shift -4.25 st, cand @84s -> query @31s)
+total 3.4 s (1 gpu)
+==PROF== Disconnected from process 1145750
+[1145750] gpu_detect@127.0.0.1
+  unnamed>::distance_batched_kernel(const float *, int, const float *, int, int, float *) (14, 3567, 41)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- -------------
+    Metric Name             Metric Unit  Metric Value
+    ----------------------- ----------- -------------
+    DRAM Frequency                  Ghz          7.99
+    SM Frequency                    Ghz          1.17
+    Elapsed Cycles                cycle    57,196,824
+    Memory Throughput                 %         93.11
+    DRAM Throughput                   %          5.69
+    Duration                         ms         48.89
+    L1/TEX Cache Throughput           %         86.11
+    L2 Cache Throughput               %         93.11
+    SM Active Cycles              cycle 57,200,177.73
+    Compute (SM) Throughput           %         59.05
+    ----------------------- ----------- -------------
+
+    INF   The kernel is utilizing greater than 80.0% of the available compute or memory performance of the device. To   
+          further improve performance, work will likely need to be shifted from the most utilized to another unit.      
+          Start by analyzing L2 in the Memory Workload Analysis section.                                                
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle        25.83
+    Warp Cycles Per Executed Instruction           cycle        25.83
+    Avg. Active Threads Per Warp                                31.85
+    Avg. Not Predicated Off Threads Per Warp                    31.27
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could 
+          enable the rule to provide more guidance.                                                                     
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Local Speedup: 39.74%                                                                                    
+          On average, each warp of this kernel spends 10.3 cycles being stalled waiting for the L1 instruction queue    
+          for local and global (LG) memory operations to be not full. Typically, this stall occurs only when executing  
+          local or global memory instructions extremely frequently. Avoid redundant global memory accesses. Try to      
+          avoid using thread-local memory by checking if dynamically indexed arrays are declared in local scope, of if  
+          the kernel has excessive register pressure causing by spills. If applicable, consider combining multiple      
+          lower-width memory operations into fewer wider memory operations and try interleaving memory operations and   
+          math instructions. This stall type represents about 39.7% of the total average of 25.8 cycles between         
+          issuing two instructions.                                                                                     
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Est. Local Speedup: 30.99%                                                                                    
+          On average, each warp of this kernel spends 8.0 cycles being stalled waiting for a scoreboard dependency on a 
+          L1TEX (local, global, surface, texture) operation. Find the instruction producing the data being waited upon  
+          to identify the culprit. To reduce the number of cycles waiting on L1TEX data accesses verify the memory      
+          access patterns are optimal for the target architecture, attempt to increase cache hit rates by increasing    
+          data locality (coalescing), or by changing the cache configuration. Consider moving frequently used data to   
+          shared memory. This stall type represents about 31.0% of the total average of 25.8 cycles between issuing     
+          two instructions.                                                                                             
+    ----- --------------------------------------------------------------------------------------------------------------
+    INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
+          sampling data. The Kernel Profiling Guide                                                                     
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference) provides more details    
+          on each stall reason.                                                                                         
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            6
+    Block Limit Shared Mem                block            8
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           48
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        92.38
+    Achieved Active Warps Per SM           warp        44.34
+    ------------------------------- ----------- ------------
+

@@ -88,24 +88,6 @@ std::vector<float> load_preprocessed(const std::string& path, float max_seconds)
     return mono;
 }
 
-size_t best_snippet_offset(const std::vector<float>& x) {
-    const size_t win = (size_t)SNIPPET_SECONDS * SAMPLE_RATE;
-    const size_t hop = (size_t)SNIPPET_HOP_SECONDS * SAMPLE_RATE;
-    if (x.size() <= win) return 0;
-
-    /* prefix sums of energy -> O(1) per window */
-    std::vector<double> pre(x.size() + 1, 0.0);
-    for (size_t i = 0; i < x.size(); i++) pre[i + 1] = pre[i] + (double)x[i] * x[i];
-
-    size_t best = 0;
-    double best_e = -1.0;
-    for (size_t off = 0; off + win <= x.size(); off += hop) {
-        double e = pre[off + win] - pre[off];
-        if (e > best_e) { best_e = e; best = off; }
-    }
-    return best;
-}
-
 void enforce_time_limit(int limit_seconds) {
     std::thread([limit_seconds] {
         std::this_thread::sleep_for(std::chrono::seconds(limit_seconds));

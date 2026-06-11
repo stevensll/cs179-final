@@ -193,6 +193,13 @@ def main():
           f"F {100*F:.1f}%   [paper, 10-cand pools: P 83.3 R 50.0 F 62.5]")
 
     os.makedirs(args.out, exist_ok=True)
+    # persist per-(query,candidate) out-of-fold scores: every pool-size /
+    # threshold analysis is recomputable from this without retraining
+    with open(f"{args.out}/rerank_scores.csv", "w") as f:
+        f.write("query,candidate,rf_prob,heur,is_true,thr\n")
+        for (q, c), (p, h) in sorted(agg.items()):
+            f.write(f"{q},{c},{p:.6f},{h:.6f},{int(c in truth[q])},{thr:.4f}\n")
+
     sub_all = train_subsample(np.arange(len(y)))
     rf_full = RandomForestClassifier(n_estimators=200, max_features="sqrt",
                                      class_weight="balanced", n_jobs=-1,

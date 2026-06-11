@@ -105,9 +105,4 @@ constexpr std::array<int, 1> WINDOW_SECONDS = {4};
 #endif
 constexpr int WINDOW_HOP_SECONDS = SD_WINDOW_HOP_SECONDS;
 
-/* Legacy (CPU demo v1 algorithm only — see TODO.md): single-snippet hypotheses. */
-constexpr int SNIPPET_SECONDS     = 8;
-constexpr int SNIPPET_HOP_SECONDS = 1;
-constexpr int DEFAULT_WINDOWS     = 6;
-
 }  /* namespace sd */

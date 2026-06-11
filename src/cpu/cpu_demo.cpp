@@ -1,13 +1,13 @@
-/* cpu_demo — single-threaded reference detector.
- * Usage: cpu_demo [--max-seconds S] [--iters I] <query.wav> <library_dir>
- * Prints library songs ranked by min subsequence-DTW cost (best match first). */
+/* cpu_demo — single-threaded reference detector, algorithmically identical to
+ * gpu_detect (same stages, same seeds, same scoring; see cpu_pipeline.hpp).
+ * Usage: cpu_demo [--max-seconds S] [--iters I] [--clip] <query.wav> <library_dir>
+ * Prints library songs ranked by selectivity-calibrated DTW score. */
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -22,8 +22,7 @@ namespace {
 
 struct Result {
     std::string name;
-    float score;
-    float best_shift;
+    sd::MatchInfo m;
 };
 
 double secs_since(clk::time_point t0) {
@@ -35,23 +34,25 @@ double secs_since(clk::time_point t0) {
 int main(int argc, char** argv) {
     float max_seconds = 0.f;
     int iters = sd::DEFAULT_ITERS;
-    int windows = sd::DEFAULT_WINDOWS;
+    bool clip = false;
     int argi = 1;
     while (argi < argc && argv[argi][0] == '-') {
         if (!strcmp(argv[argi], "--max-seconds") && argi + 1 < argc) max_seconds = atof(argv[++argi]);
         else if (!strcmp(argv[argi], "--iters") && argi + 1 < argc) iters = atoi(argv[++argi]);
-        else if (!strcmp(argv[argi], "--windows") && argi + 1 < argc) windows = atoi(argv[++argi]);
+        else if (!strcmp(argv[argi], "--clip")) clip = true;
         else { fprintf(stderr, "unknown flag %s\n", argv[argi]); return 1; }
         argi++;
     }
     if (argc - argi != 2) {
-        fprintf(stderr, "usage: %s [--max-seconds S] [--iters I] <query.wav> <library_dir>\n", argv[0]);
+        fprintf(stderr,
+                "usage: %s [--max-seconds S] [--iters I] [--clip] <query.wav> <library_dir>\n",
+                argv[0]);
         return 1;
     }
     const std::string query_path = argv[argi];
     const std::string lib_dir = argv[argi + 1];
 
-    sd::enforce_time_limit(7200);  /* CPU demo is slow by design; see PROPOSAL.md */
+    sd::enforce_time_limit(7200);  /* CPU reference is slow by design */
     auto t0 = clk::now();
 
     auto query = sd::load_preprocessed(query_path, max_seconds);
@@ -66,74 +67,23 @@ int main(int argc, char** argv) {
         const std::string name = entry.path().filename().string();
 
         auto cand = sd::load_preprocessed(entry.path().string(), 0.f);
-        const size_t wlen = (size_t)sd::SNIPPET_SECONDS * sd::SAMPLE_RATE;
+        sd::Mat Vc = sd::stft_magnitude(cand);
+        sd::CpuCandidateTemplates ct = sd::candidate_templates(Vc, iters);
+        sd::MatchInfo m = sd::score_candidate(Vq, ct, iters, clip);
 
-        /* snippet hypotheses: max-RMS window + evenly spaced (same as GPU) */
-        std::vector<size_t> offsets;
-        offsets.push_back(sd::best_snippet_offset(cand));
-        size_t span = cand.size() > wlen ? cand.size() - wlen : 0;
-        for (int w = 0; w + 1 < windows; w++) {
-            size_t o2 = windows > 2 ? span * w / (windows - 2) : 0;
-            bool dup = false;  /* skip windows overlapping an existing one */
-            for (size_t o : offsets)
-                if ((o > o2 ? o - o2 : o2 - o) < wlen / 2) dup = true;
-            if (!dup) offsets.push_back(o2);
-        }
-
-        float best = 1e30f, best_shift = 0.f;
-        for (size_t off : offsets) {
-            size_t win = std::min(wlen, cand.size() - off);
-            std::vector<float> snippet(cand.begin() + off, cand.begin() + off + win);
-            sd::Mat Vo = sd::stft_magnitude(snippet);
-
-            /* templates of the candidate's sample hypothesis */
-            sd::Mat Wo(sd::N_BINS, sd::RANK_K), Ho(sd::RANK_K, Vo.cols);
-            sd::seed_matrix(Wo, 42);
-            sd::seed_matrix(Ho, 43);
-            sd::nmf(Vo, Wo, Ho, iters, 0);
-            sd::normalize_columns(Wo, &Ho);  /* see normalize_columns docs */
-
-            for (int p = 0; p < sd::N_SHIFTS; p++) {
-                sd::Mat Wp = sd::pitch_shift_templates(Wo, sd::pitch_shift(p));
-                sd::normalize_columns(Wp, nullptr);  /* shift changes norms */
-
-                /* PFNMF: [Wp fixed | RANK_L free templates] against the query */
-                const int R = sd::RANK_K + sd::RANK_L;
-                sd::Mat W(sd::N_BINS, R), H(R, Vq.cols);
-                sd::seed_matrix(W, 100 + p);
-                sd::seed_matrix(H, 200 + p);
-                for (int b = 0; b < sd::N_BINS; b++)
-                    for (int k = 0; k < sd::RANK_K; k++) W.at(b, k) = Wp.at(b, k);
-                sd::nmf(Vq, W, H, iters, sd::RANK_K);
-
-                sd::Mat D = sd::correlation_distance(Ho, H);
-
-                /* null calibration (matches GPU): same distances with query
-                 * frames shuffled — kills temporal structure, keeps marginals.
-                 * Scoring by true/null cancels per-candidate cost bias. */
-                std::vector<int> perm(D.cols);
-                for (int j = 0; j < D.cols; j++) perm[j] = j;
-                std::mt19937 prng(7);
-                std::shuffle(perm.begin(), perm.end(), prng);
-                sd::Mat Dn(D.rows, D.cols);
-                for (int i = 0; i < D.rows; i++)
-                    for (int j = 0; j < D.cols; j++) Dn.at(i, j) = D.at(i, perm[j]);
-
-                float cost = sd::dtw_min_cost(D) / (sd::dtw_min_cost(Dn) + 1e-12f);
-                if (cost < best) { best = cost; best_shift = sd::pitch_shift(p); }
-            }
-        }
-        printf("  %-28s score %.4f (shift %+.2f st)  [t=%.0fs]\n",
-               name.c_str(), best, best_shift, secs_since(t0));
-        results.push_back({name, best, best_shift});
+        printf("  %-28s score %.4f (shift %+.2f st, cand @%.0fs -> query @%.0fs)  [t=%.1fs]\n",
+               name.c_str(), m.score, m.shift, m.cand_seconds, m.query_seconds,
+               secs_since(t0));
+        results.push_back({name, m});
     }
 
     std::sort(results.begin(), results.end(),
-              [](const Result& a, const Result& b) { return a.score < b.score; });
+              [](const Result& a, const Result& b) { return a.m.score < b.m.score; });
     printf("\nranking (best match first):\n");
     for (size_t i = 0; i < results.size(); i++)
-        printf("%zu. %-28s score %.4f (shift %+.1f st)\n",
-               i + 1, results[i].name.c_str(), results[i].score, results[i].best_shift);
-    printf("total %.0f s\n", secs_since(t0));
+        printf("%zu. %-28s score %.4f (shift %+.2f st, cand @%.0fs -> query @%.0fs)\n",
+               i + 1, results[i].name.c_str(), results[i].m.score, results[i].m.shift,
+               results[i].m.cand_seconds, results[i].m.query_seconds);
+    printf("total %.1f s\n", secs_since(t0));
     return 0;
 }

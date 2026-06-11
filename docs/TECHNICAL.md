@@ -96,7 +96,7 @@ cs179-final/
 ├── src/
 │   ├── common/            # compiles WITHOUT CUDA: audio.{hpp,cpp} (WAV load,
 │   │                      #   downmix, RMS, 2:1 decimator), params.hpp
-│   ├── cpu/               # cpu_demo.cpp + cpu_pipeline.{hpp,cpp} (v1 algorithm)
+│   ├── cpu/               # cpu_demo.cpp + cpu_pipeline.{hpp,cpp} (GPU-parity mirror)
 │   └── gpu/               # gpu_detect.cu, gpu_pipeline.cu(h) (orchestration),
 │                          #   kernels.cu(h) (all custom kernels), gemm.cu(h)
 │                          #   (cuBLAS wrappers), device_buffer.cuh, error_check.cuh

@@ -151,7 +151,12 @@ decision is **stage 3**: fully custom fused NMF (recommended; keeps a cuBLAS bui
 benchmark baseline) vs. cuBLAS-backed NMF (less work, weaker story). cuFFT stays as the
 one deliberate built-in either way.
 
-## Aside: scaling to a trained classifier (future work note)
+## Aside: scaling to a trained classifier (written as future work — since done)
+
+*(2026-06-11: this happened as predicted — 13 path features via
+dtw_band_preds + host backtracking, RF trained on Sample100, and a custom
+FIL-style CUDA inference kernel, `rf_infer`. Kept as written below for the
+historical record.)*
 
 The v1 back end ranks library songs by minimum subsequence-DTW cost (no classifier).
 If we later train the paper's random forest (~500 labeled queries from the

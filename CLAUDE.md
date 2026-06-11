@@ -66,8 +66,10 @@ launch; device memory through `DeviceBuffer<T>`, no Thrust/CUB.
 
 ## Confirmed decisions
 
-- Backend: rank library by min subsequence-DTW cost; no classifier (future-work note
-  only).
+- Backend: rank library by min subsequence-DTW cost. The classifier stage was
+  originally out of scope ("future-work note only"); Steven extended scope
+  2026-06-11 — the paper's 13-feature random forest is now trained
+  (tools/train_rf.py) with a CUDA inference kernel (rf_infer).
 - Kernel scope: **revised by Steven 2026-06-10 (v3)** — matrix multiplies via
   cuBLAS (NVIDIA built-ins allowed where they exist; enough custom kernels
   remain), cuFFT for STFT; all other stages are custom kernels.
@@ -77,12 +79,12 @@ launch; device memory through `DeviceBuffer<T>`, no Thrust/CUB.
 
 ## File map
 
-- `src/common/` — audio I/O, preprocessing, pipeline types (shared CPU/GPU)
-- `src/cpu/` — CPU reference, one file per stage
-- `src/gpu/` — paired `.cu/.cuh` per stage: stft, nmf, pitch_templates, distance, dtw
-- `tests/` — per-stage golden tests + end-to-end test
-- `golden/` — CPU-generated reference outputs (regenerate deliberately only)
+- `src/common/` — audio I/O, preprocessing, shared types/params (CPU+GPU)
+- `src/cpu/` — CPU reference, stage-for-stage mirror of the GPU pipeline
+- `src/gpu/` — kernels.cu(h), gpu_pipeline.cu(h), gemm, gpu_detect, rf_infer
+- `tests/` — make_fixtures.sh + run_ladder.sh (4 structural gates)
 - `music/` — song library + queries; `docs/TESTING.md` maps queries to expected matches
+- `tools/` — eval runner, RF trainer/exporter, pool/profile analysis, plots, scraper
 - `build/` — out-of-source build dir (not committed)
 
 ## Notes / build log
@@ -447,3 +449,64 @@ sample-free queries in Sample100 -> R pegged at 100, P = top-1 accuracy).
 Feature importances: path geometry dominates (avg_slope .130, avg_cost .107,
 min_cost .100) — the melodic-confound failure mode is what the RF separates.
 Model: plots/rf/rf_model.joblib (gitignored, regenerable in ~40 min).
+
+### 2026-06-11 — CPU parity port + CUDA forest inference (FIL-style)
+
+CPU reference (src/cpu/) rewritten as a stage-for-stage mirror of the
+production GPU pipeline (was still the v1 snippet-window algorithm): log
+filterbank, simultaneous NMF, full-song templates, integer-translation pitch
+shifts, max-norm + Z_REG znorm with source attribution, banded DTW + slope
+filter, selectivity scoring; same seeds (42/43, 100+p/200+p). MatchInfo
+moved to src/common/match_info.hpp (shared); legacy SNIPPET_* params and
+best_snippet_offset deleted. Parity vs gpu_detect at matched config
+(--max-seconds 30-45 --iters 30): canary 0.2535@+0.00, synth_plain
+0.4864@+0.00, synth_fast 0.4334@+1.00 — scores IDENTICAL to 4 decimals,
+same locations, despite TF32+fast-math on the GPU side. CPU canary run
+47.8 s vs GPU ~1 s at that reduced config.
+
+CUDA forest inference (src/gpu/rf_infer.cu + tools/export_forest.py):
+sklearn forest exported to a flat binary (SDRF), kernel = one thread per
+row walking all 200 trees, FIL-style 16-byte PackedNode = one 128-bit load
+per node visit (3.0x over the 4-array SoA layout on the real 24.9M-node
+forest — traversal is DRAM-bound at depth ~60). Numerical parity bug found
+and fixed via the harness: sklearn compares float32-cast features against
+FLOAT64 thresholds; naive float32 threshold export rounds UP past feature
+values and flips decisions (max prob diff 0.02 = 4 flipped trees). Fix:
+export floor32(threshold) — largest float32 <= the float64 value — making
+the float32 compare decision-exact. Result on 500k real corpus rows:
+max |diff| vs predict_proba 5.96e-08, 0 rows above 1e-4 (PARITY OK).
+Speed: 3.1M rows/s on one A5000 vs sklearn n_jobs=-1 0.16M rows/s (19x);
+full corpus in ~5.6 s. Usage: tools/export_forest.py then
+./build/rf_infer plots/rf/forest.bin <rows.f32> <ref_probs.f32> 13.
+
+### 2026-06-11 — final wrap: 10-pool protocol, progression plot, FIL profiling, tidy
+
+- tools/train_rf.py now persists per-(query,candidate) out-of-fold scores
+  (plots/rf/rerank_scores.csv) — pool-size/threshold analyses no longer need
+  retraining. Retrain reproduced the numbers (MRR 0.558 vs 0.557, the only
+  stochastic step is negative subsampling); quoted figures stay the first
+  run's.
+- tools/pool_analysis.py: the paper's EXACT protocol (1 true + 9 random)
+  simulated from the OOF scores — 10-pool top-1 60.3% (exact hypergeometric
+  expectation), macro P 60.4 / R 99.0 / F 75.0 (Monte Carlo @ thr 0.600) vs
+  paper 83.3 / 50.0 / 62.5. 64-pool P/R sweep: P 100% @ R 22.9, 85.3% @ 41.4,
+  52.2% @ the paper's R=50 point. Tables + caveats in RESULTS.md.
+- plots/speedup_progression.png (tools/plot_speedup.py): per-iteration scan
+  speedup 1x -> 14x with gate-MRR overlay + full-benchmark RF endpoints
+  (0.214 -> 0.557); 40x benchmark figure as a callout (different workload).
+- Profiling refresh on the final build (plots/06_fil + rewritten
+  plots/PERF-CHARACTERIZATION.md): post-mel kernel balance is fused 27.7% /
+  distance 26.3% / dtw 19.2% / GEMMs 21.7%; tensor pipes 31.7%/45.8%
+  (bandwidth-bound ceiling for these shapes); forest_predict is pure
+  latency (long_scoreboard 452 cyc/issue, DRAM 35%, compute 4%) — confirms
+  the packed-node 3x rationale. Idle decomposition via sqlite gap
+  classification: 6.1% pageable-H2D staging, 3.7% one-time module load,
+  0.8% malloc/free, ~0.1% launch overhead, ~6% sub-50us micro-gaps; NOT
+  sync, NOT D2H. (Idle share grew from 6.4% pre-mel because mel cut GPU
+  work 5.6x; absolute idle similar.)
+- Tidy: README/PRESENTATION/TODO/PAPER-MAPPING reconciled to final numbers
+  (fresh ladder run: canary 0.171, synth 0.421/0.346, Hung Up 0.415 — all
+  PASS; Lucid->Shape now ranks #1 under the production config; TTS->MOU
+  still #3 at heuristic stage). TODO.md rewritten: done items closed, only
+  small benign items remain. docs/PAPER-VS-OURS.md added (canonical vs ours
+  narrative, accuracy + perf rationale). Final commit: 'this is it'.

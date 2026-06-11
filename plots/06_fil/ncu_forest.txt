@@ -1,0 +1,119 @@
+==PROF== Connected to process 1147300 (/home/slei3/cs179-final/build/rf_infer)
+==PROF== Profiling "forest_predict_kernel": 0%....50%....100% - 10 passes
+==PROF== Profiling "forest_predict_kernel": 0%....50%....100% - 10 passes
+forest: 200 trees, 24909954 nodes, 13 features; 500000 verification rows
+kernel: 561.771 ms per pass = 0.9 M rows/s (200 trees each)
+vs sklearn: max |diff| 5.96e-08 (row 632: gpu 0.845000 ref 0.845000), mean 9.18e-10, rows >1e-4: 0/500000
+PARITY OK
+==PROF== Disconnected from process 1147300
+[1147300] rf_infer@127.0.0.1
+  <unnamed>::forest_predict_kernel(const float *, int, int, const <unnamed>::PackedNode *, const int *, int, float *) (1954, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    ------------------------------------------------------------------------- ----------- ------------
+    Metric Name                                                               Metric Unit Metric Value
+    ------------------------------------------------------------------------- ----------- ------------
+    smsp__average_warps_issue_stalled_barrier_per_issue_active.ratio                 inst            0
+    smsp__average_warps_issue_stalled_lg_throttle_per_issue_active.ratio             inst         0.02
+    smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.ratio         inst       452.51
+    smsp__average_warps_issue_stalled_mio_throttle_per_issue_active.ratio            inst         0.00
+    smsp__average_warps_issue_stalled_not_selected_per_issue_active.ratio            inst         0.01
+    smsp__average_warps_issue_stalled_short_scoreboard_per_issue_active.ratio        inst         0.00
+    smsp__average_warps_issue_stalled_wait_per_issue_active.ratio                    inst         4.23
+    ------------------------------------------------------------------------- ----------- ------------
+
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- --------------
+    Metric Name             Metric Unit   Metric Value
+    ----------------------- ----------- --------------
+    DRAM Frequency                  Ghz           7.99
+    SM Frequency                    Ghz           1.17
+    Elapsed Cycles                cycle    192,092,929
+    Memory Throughput                 %          35.31
+    DRAM Throughput                   %          35.31
+    Duration                         ms         164.18
+    L1/TEX Cache Throughput           %          21.96
+    L2 Cache Throughput               %          21.03
+    SM Active Cycles              cycle 188,509,935.25
+    Compute (SM) Throughput           %           4.03
+    ----------------------- ----------- --------------
+
+    OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
+          of this device. Achieved compute throughput and/or memory bandwidth below 60.0% of peak typically indicate    
+          latency issues. Look at Scheduler Statistics and Warp State Statistics for potential reasons.                 
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            8
+    Block Limit Shared Mem                block            8
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           48
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        82.00
+    Achieved Active Warps Per SM           warp        39.36
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 18%                                                                                       
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (82.0%) can be the     
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+
+  <unnamed>::forest_predict_kernel(const float *, int, int, const <unnamed>::PackedNode *, const int *, int, float *) (1954, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    ------------------------------------------------------------------------- ----------- ------------
+    Metric Name                                                               Metric Unit Metric Value
+    ------------------------------------------------------------------------- ----------- ------------
+    smsp__average_warps_issue_stalled_barrier_per_issue_active.ratio                 inst            0
+    smsp__average_warps_issue_stalled_lg_throttle_per_issue_active.ratio             inst         0.02
+    smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.ratio         inst       447.58
+    smsp__average_warps_issue_stalled_mio_throttle_per_issue_active.ratio            inst         0.00
+    smsp__average_warps_issue_stalled_not_selected_per_issue_active.ratio            inst         0.01
+    smsp__average_warps_issue_stalled_short_scoreboard_per_issue_active.ratio        inst         0.00
+    smsp__average_warps_issue_stalled_wait_per_issue_active.ratio                    inst         4.23
+    ------------------------------------------------------------------------- ----------- ------------
+
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- --------------
+    Metric Name             Metric Unit   Metric Value
+    ----------------------- ----------- --------------
+    DRAM Frequency                  Ghz           7.99
+    SM Frequency                    Ghz           1.17
+    Elapsed Cycles                cycle    189,895,251
+    Memory Throughput                 %          35.40
+    DRAM Throughput                   %          35.40
+    Duration                         ms         162.30
+    L1/TEX Cache Throughput           %          21.75
+    L2 Cache Throughput               %          21.28
+    SM Active Cycles              cycle 187,723,048.47
+    Compute (SM) Throughput           %           4.00
+    ----------------------- ----------- --------------
+
+    OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
+          of this device. Achieved compute throughput and/or memory bandwidth below 60.0% of peak typically indicate    
+          latency issues. Look at Scheduler Statistics and Warp State Statistics for potential reasons.                 
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            8
+    Block Limit Shared Mem                block            8
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           48
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        82.18
+    Achieved Active Warps Per SM           warp        39.45
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 17.82%                                                                                    
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (82.2%) can be the     
+          result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
+          occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
+          Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
+          optimizing occupancy.                                                                                         
+

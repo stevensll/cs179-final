@@ -13,9 +13,6 @@ namespace sd {
  * Exits with a message on failure. */
 std::vector<float> load_preprocessed(const std::string& path, float max_seconds);
 
-/* Start index of the highest-RMS-energy SNIPPET_SECONDS window (sample hypothesis). */
-size_t best_snippet_offset(const std::vector<float>& x);
-
 /* Kill the process after limit_seconds (shared-machine etiquette, CS179 convention). */
 void enforce_time_limit(int limit_seconds);
 

@@ -5,6 +5,7 @@
 
 #include <vector>
 
+#include "../common/match_info.hpp"
 #include "device_buffer.cuh"
 
 namespace sd {
@@ -14,14 +15,6 @@ struct GpuMat {
     int rows = 0, cols = 0;
     float* ptr() { return buf.ptr(); }
     const float* ptr() const { return buf.ptr(); }
-};
-
-/* Best match found for one candidate. */
-struct MatchInfo {
-    float score = 1e30f;       /* lower = better; null-calibrated dip depth */
-    float shift = 0.f;         /* semitones, sample in query vs candidate */
-    float cand_seconds = 0.f;  /* start of best-matching candidate window */
-    float query_seconds = 0.f; /* end of the best alignment in the query */
 };
 
 /* Magnitude spectrogram (N_BINS x frames) of a preprocessed signal. */

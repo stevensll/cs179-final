@@ -1,0 +1,105 @@
+==PROF== Connected to process 1147135 (/home/slei3/cs179-final/build/gpu_detect)
+==PROF== Profiling "Kernel2": 0%....50%....100% - 7 passes
+==PROF== Profiling "Kernel2": 0%....50%....100% - 7 passes
+query: Move On Up.wav (3655904 samples)
+  MoveCopy.wav                 score 0.9692 (shift -4.25 st, cand @84s -> query @31s)  [gpu0 t=2.9s]
+
+ranking (best match first):
+1. MoveCopy.wav                 score 0.9692 (shift -4.25 st, cand @84s -> query @31s)
+total 2.9 s (1 gpu)
+==PROF== Disconnected from process 1147135
+[1147135] gpu_detect@127.0.0.1
+  void Kernel2<cutlass_80_tensorop_s1688gemm_64x64_16x6_tn_align1>(Params) (6, 1, 8)x(128, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    -------------------------------------------------------------- ----------- ------------
+    Metric Name                                                    Metric Unit Metric Value
+    -------------------------------------------------------------- ----------- ------------
+    sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_active           %        31.68
+    -------------------------------------------------------------- ----------- ------------
+
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         7.98
+    SM Frequency                    Ghz         1.14
+    Elapsed Cycles                cycle       25,288
+    Memory Throughput                 %        44.80
+    DRAM Throughput                   %        43.04
+    Duration                         us        22.08
+    L1/TEX Cache Throughput           %        66.71
+    L2 Cache Throughput               %        23.29
+    SM Active Cycles              cycle    16,893.55
+    Compute (SM) Throughput           %        21.28
+    ----------------------- ----------- ------------
+
+    OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.4 full      
+          waves across all SMs. Look at Launch Statistics for more details.                                             
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            5
+    Block Limit Shared Mem                block            2
+    Block Limit Warps                     block           12
+    Theoretical Active Warps per SM        warp            8
+    Theoretical Occupancy                     %        16.67
+    Achieved Occupancy                        %         8.33
+    Achieved Active Warps Per SM           warp         4.00
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 83.33%                                                                                    
+          The 2.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the       
+          hardware maximum of 12. This kernel's theoretical occupancy (16.7%) is limited by the required amount of      
+          shared memory.                                                                                                
+
+  void Kernel2<cutlass_80_tensorop_s1688gemm_256x64_16x4_nt_align1>(Params) (8, 2, 41)x(128, 1, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: Command line profiler metrics
+    -------------------------------------------------------------- ----------- ------------
+    Metric Name                                                    Metric Unit Metric Value
+    -------------------------------------------------------------- ----------- ------------
+    sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_active           %        45.83
+    -------------------------------------------------------------- ----------- ------------
+
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         7.99
+    SM Frequency                    Ghz         1.16
+    Elapsed Cycles                cycle      475,007
+    Memory Throughput                 %        79.31
+    DRAM Throughput                   %        79.31
+    Duration                         us          408
+    L1/TEX Cache Throughput           %        55.85
+    L2 Cache Throughput               %        42.70
+    SM Active Cycles              cycle   460,880.55
+    Compute (SM) Throughput           %        44.71
+    ----------------------- ----------- ------------
+
+    OPT   Memory is more heavily utilized than Compute: Look at the Memory Workload Analysis section to identify the    
+          DRAM bottleneck. Check memory replay (coalescing) metrics to make sure you're efficiently utilizing the       
+          bytes transferred. Also consider whether it is possible to do more work per memory access (kernel fusion) or  
+          whether there are values you can (re)compute.                                                                 
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            2
+    Block Limit Shared Mem                block            1
+    Block Limit Warps                     block           12
+    Theoretical Active Warps per SM        warp            4
+    Theoretical Occupancy                     %         8.33
+    Achieved Occupancy                        %         8.33
+    Achieved Active Warps Per SM           warp         4.00
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 91.67%                                                                                    
+          The 1.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the       
+          hardware maximum of 12. This kernel's theoretical occupancy (8.3%) is limited by the required amount of       
+          shared memory.                                                                                                
+

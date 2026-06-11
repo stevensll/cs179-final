@@ -1,0 +1,115 @@
+==PROF== Connected to process 1145371 (/home/slei3/cs179-final/build/gpu_detect)
+==PROF== Profiling "fused_wh_ratio_kernel": 0%....50%....100% - 13 passes
+==PROF== Profiling "fused_wh_ratio_kernel": 0%....50%....100% - 13 passes
+query: Move On Up.wav (3655904 samples)
+  MoveCopy.wav                 score 0.9692 (shift -4.25 st, cand @84s -> query @31s)  [gpu0 t=3.0s]
+
+ranking (best match first):
+1. MoveCopy.wav                 score 0.9692 (shift -4.25 st, cand @84s -> query @31s)
+total 3.0 s (1 gpu)
+==PROF== Disconnected from process 1145371
+[1145371] gpu_detect@127.0.0.1
+  unnamed>::fused_wh_ratio_kernel(const float *, const float *, const float *, float *, int, int, int) (56, 6, 41)x(16, 16, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         7.99
+    SM Frequency                    Ghz         1.17
+    Elapsed Cycles                cycle    1,382,078
+    Memory Throughput                 %        69.45
+    DRAM Throughput                   %        50.89
+    Duration                         ms         1.18
+    L1/TEX Cache Throughput           %        69.71
+    L2 Cache Throughput               %        47.65
+    SM Active Cycles              cycle 1,375,133.73
+    Compute (SM) Throughput           %        64.77
+    ----------------------- ----------- ------------
+
+    INF   Compute and Memory are well-balanced: To reduce runtime, both computation and memory traffic must be reduced. 
+          Check both the Compute Workload Analysis and Memory Workload Analysis sections.                               
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle         8.87
+    Warp Cycles Per Executed Instruction           cycle         8.87
+    Avg. Active Threads Per Warp                                31.99
+    Avg. Not Predicated Off Threads Per Warp                    30.78
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could 
+          enable the rule to provide more guidance.                                                                     
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            5
+    Block Limit Shared Mem                block            3
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           24
+    Theoretical Occupancy                     %           50
+    Achieved Occupancy                        %        48.11
+    Achieved Active Warps Per SM           warp        23.09
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 50%                                                                                       
+          The 6.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the       
+          hardware maximum of 12. This kernel's theoretical occupancy (50.0%) is limited by the required amount of      
+          shared memory.                                                                                                
+
+  unnamed>::fused_wh_ratio_kernel(const float *, const float *, const float *, float *, int, int, int) (56, 6, 41)x(16, 16, 1), Context 1, Stream 7, Device 0, CC 8.6
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         7.99
+    SM Frequency                    Ghz         1.17
+    Elapsed Cycles                cycle    1,382,315
+    Memory Throughput                 %        69.46
+    DRAM Throughput                   %        50.88
+    Duration                         ms         1.18
+    L1/TEX Cache Throughput           %        69.70
+    L2 Cache Throughput               %        47.64
+    SM Active Cycles              cycle 1,375,427.67
+    Compute (SM) Throughput           %        64.77
+    ----------------------- ----------- ------------
+
+    INF   Compute and Memory are well-balanced: To reduce runtime, both computation and memory traffic must be reduced. 
+          Check both the Compute Workload Analysis and Memory Workload Analysis sections.                               
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle         8.88
+    Warp Cycles Per Executed Instruction           cycle         8.88
+    Avg. Active Threads Per Warp                                31.99
+    Avg. Not Predicated Off Threads Per Warp                    30.78
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could 
+          enable the rule to provide more guidance.                                                                     
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           16
+    Block Limit Registers                 block            5
+    Block Limit Shared Mem                block            3
+    Block Limit Warps                     block            6
+    Theoretical Active Warps per SM        warp           24
+    Theoretical Occupancy                     %           50
+    Achieved Occupancy                        %        48.12
+    Achieved Active Warps Per SM           warp        23.10
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 50%                                                                                       
+          The 6.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the       
+          hardware maximum of 12. This kernel's theoretical occupancy (50.0%) is limited by the required amount of      
+          shared memory.                                                                                                
+

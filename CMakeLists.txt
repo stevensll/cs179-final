@@ -38,6 +38,17 @@ target_compile_options(gpu_detect PRIVATE
 )
 target_link_libraries(gpu_detect PRIVATE CUDA::cufft CUDA::cublas ${SNDFILE_LIBRARIES} Threads::Threads)
 
+add_executable(rf_infer
+    src/gpu/rf_infer.cu
+    src/common/audio.cpp
+)
+target_include_directories(rf_infer PRIVATE ${SNDFILE_INCLUDE_DIRS})
+target_compile_options(rf_infer PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:-O3 -Wall -Wextra>
+    $<$<COMPILE_LANGUAGE:CUDA>:-O3 --generate-line-info --use_fast_math>
+)
+target_link_libraries(rf_infer PRIVATE ${SNDFILE_LIBRARIES} Threads::Threads)
+
 # Config-matrix variants: cmake -DSD_DEFS="SD_MEL_BINS=0;SD_RANK_K=24" stamps a
 # build with overridden knobs (see params.hpp; tools/sweep_configs.py drives this).
 set(SD_DEFS "" CACHE STRING "semicolon-separated SD_* definitions for config variants")

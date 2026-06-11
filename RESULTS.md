@@ -30,10 +30,10 @@ A5000s; RF = paper §3.4 (200 trees, √13 features), out-of-fold evaluation.
    log); Sample100 is the public benchmark and skews hard (chopped loops,
    short one-shots, heavy production).
 3. **Decision type**: the paper's P/R/F come from a *trained random forest*
-   making thresholded binary calls — the stage we have not added yet. Our
-   pre-RF numbers are pure ranking by heuristic score; precision is undefined
-   without a decision threshold. The "after RF" column is the
-   apples-to-apples-in-form comparison.
+   making thresholded binary calls. Our pre-RF numbers are pure ranking by
+   heuristic score; precision is undefined without a decision threshold. The
+   "after RF" column matches the paper in form; the simulated 10-pool table
+   below matches it in protocol as well.
 
 ### Pre-RF detail (full benchmark, 70 evaluable queries × 64 candidates)
 
@@ -69,6 +69,33 @@ A5000s; RF = paper §3.4 (200 trees, √13 features), out-of-fold evaluation.
   0.099); the pre-RF failure mode — melodic-resemblance confounds whose
   cheap-but-crooked alignments outrank true samples — is exactly what these
   separate. Training: `tools/train_rf.py`, model in `plots/rf/`.
+- Reproducibility: retraining reproduces these numbers to ±0.001 MRR (the
+  only stochastic step is training-negative subsampling); the quoted figures
+  are the first full run's.
+
+### Apples-to-apples: simulated 10-candidate pools (the paper's protocol)
+
+`tools/pool_analysis.py` recomputes the metrics under the paper's exact
+protocol — 1 true + 9 random candidates per query — from the persisted
+out-of-fold scores (`plots/rf/rerank_scores.csv`): top-1 win probability is
+exact (hypergeometric over the negatives outscoring the true original);
+macro P/R/F at the train-chosen threshold is Monte Carlo (2,000 pools/query).
+
+| | Paper | Ours, 64-pool | Ours, 10-pool (paper protocol) |
+|---|---|---|---|
+| Macro precision | 83.3% | 50.0% | **60.4%** |
+| Macro recall | 50.0% | 100.0% | **99.0%** |
+| Macro F-measure | 62.5% | 66.7% | **75.0%** |
+| Top-1 accuracy | — | 50.0% | **60.3%** (exact expectation) |
+
+The forest is also well-calibrated when operated conservatively — the
+64-pool precision/recall sweep over the detection threshold gives
+P 100% @ R 22.9%, P 85.3% @ R 41.4%, and P 52.2% at the paper's R = 50%
+operating point. Two honest residual asymmetries even at matched pool size:
+our random negatives are drawn from the sampled-source canon (genre-similar
+clean riffs — adversarial in a way the paper's random songs likely weren't),
+and our recall stays pegged near 100% because Sample100 has no sample-free
+queries to reward abstention on.
 
 ## Performance
 
@@ -78,11 +105,13 @@ A5000s; RF = paper §3.4 (200 trees, √13 features), out-of-fold evaluation.
 | Full-song query vs 64-candidate library | ~340 s | **19.3 s** | **18×** |
 | 15 s clip vs 64-candidate library | 21.7 s | **2.3 s** | **9.4×** |
 | Full 70-query benchmark | ~8.5 h (est.) | **~13 min** | **~40×** |
+| RF inference, 200 trees (vs sklearn on 32 CPU cores) | 0.16 M rows/s | **3.1 M rows/s** | **19×** (output sklearn-exact: max diff 6e-8) |
 
 Per-iteration optimization history with gate evidence: README.md
-("Optimization iterations" table) and the CLAUDE.md build log; per-iteration
-profiles in `plots/00_baseline` … `plots/05_mel`; kernel-level analysis
-(occupancy, stalls, tensor-core utilization, idle decomposition) in
+("Optimization iterations" table), `plots/speedup_progression.png`, and the
+CLAUDE.md build log; per-iteration profiles in `plots/00_baseline` …
+`plots/06_fil`; final-build kernel-level analysis (occupancy, stalls,
+tensor-core utilization, idle decomposition) in
 `plots/PERF-CHARACTERIZATION.md`.
 
 ## Reproduction
@@ -92,6 +121,13 @@ make                                   # build (CMake under the hood)
 tests/run_ladder.sh                    # verification ladder (4 structural gates)
 python3 tools/eval_sample100.py --gpus 2 --iters 60        # full benchmark
 python3 tools/sweep_configs.py         # config-matrix Pareto sweep
+
+# RF stage (feature corpus ~30 min on 2 GPUs, training ~40 min):
+#   per query: ./build/gpu_detect --features datasets/sample100/features/<q>.csv ...
+python3 tools/train_rf.py              # train + leakage-safe eval + persist scores
+python3 tools/pool_analysis.py         # 10-pool protocol + P/R curve (no retrain)
+python3 tools/export_forest.py         # flat forest + verification set for the GPU
+./build/rf_infer plots/rf/forest.bin plots/rf/verify_rows.f32 plots/rf/verify_probs.f32 13
 ```
 
 Dataset setup (one-time): `tools/DATASET.md`.
