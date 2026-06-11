@@ -12,6 +12,11 @@ datasets/sample100/download_log.csv
 # candidate-template caches (regenerated on demand, fingerprint-keyed)
 .tcache/
 
+# RF artifacts: feature corpus (gpu_detect --features, ~30 min to regenerate),
+# trained model + exported forest (tools/train_rf.py + tools/export_forest.py)
+datasets/sample100/features/
+plots/rf/
+
 # profiler artifacts
 *.nsys-rep
 *.sqlite

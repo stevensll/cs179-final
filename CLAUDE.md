@@ -401,3 +401,49 @@ and plots the Pareto frontier (plots/sweep/).
   hop_shift   1.6     3.6     0.329  4x vs mel4 default, accuracy held
 Frontier: hop_shift -> hop2048 -> mel4_k32. Full-73-query confirmation run of
 mel4_k32 in flight before any default change.
+
+### 2026-06-11 — default locked (K=32), feature extraction, repo cleanup, RESULTS.md
+
+- Full-70-query confirmations settled the default: mel4_k32 MRR 0.214 /
+  hit@1 11.4% vs mel4(K=40) 0.203/8.6% vs hop2048 0.179/7.1%. SD_RANK_K
+  default now 32. NOTE: the 9-query sweep subset overestimated MRR ~2x
+  (0.384 -> 0.214) — subsets prune dominated configs and measure speed;
+  frontier accuracy must come from the full benchmark.
+- Final production numbers (K=32): scan 3.0 s · full-64 19.3 s · clip 2.3 s.
+- RF critical path built: dtw_band_preds_kernel (predecessor recording for
+  selected top-32 hypotheses), host backtracking, the paper's 13 path/cost
+  features per unique path start, gpu_detect --features CSV mode. Smoke
+  test: 4,532 rows for one query x 5 candidates in 4.5 s; junk hypotheses
+  show the expected meandering-path signatures. Trainer script still TODO.
+- Cleanup: fixtures + ladder scripted (tests/make_fixtures.sh,
+  tests/run_ladder.sh — 4 structural gates, all green); build/ artifacts
+  purged; .gitignore (no audio, no binaries); Steven made the initial
+  commits (62dd658, 37f5606, 9a87227 — repo finally has history);
+  RESULTS.md created (paper-vs-ours metric framing with protocol-differences
+  caveats and after-RF placeholders).
+
+### 2026-06-11 — RF stage trained: hit@1 11.4% -> 50.0%, macro F 66.7% (paper: 62.5)
+
+Feature corpus: 70 queries x 64 candidates via gpu_detect --features, both
+GPUs, ~30 min -> 17.3M rows, 51,652 positives (0.30%; label = annotated pair
+AND band_start within 4 s of an annotated t_original). Corpus sanity-checked
+structurally (row counts, value ranges, 0 violations) and by signal (Hung
+Up->Gimme truth region: slope 0.98 / dev 0.23 / 12 endpoints vs degenerate
+false-candidate geometry — the paper's separability claim, visible raw).
+
+Training (tools/train_rf.py): paper 3.4 config (200 trees, sqrt features),
+leakage-safe by construction — GroupKFold over the 52 connected components
+of the query<->original graph, out-of-fold predictions only, train-side
+threshold, geometry-only features. Training negatives subsampled 20:1
+(test folds always predicted in FULL, so reranking is exact). Dry run on a
+12-query partial corpus validated mechanics before the full run (~40 min,
+the corpus loads single-threaded for ~15 of those).
+
+Results (out-of-fold, 64-candidate pools): row AUC 0.629; rerank by max
+prob: MRR 0.214 -> 0.557, hit@1 11.4% -> 50.0%, hit@3 21.4% -> 57.1%.
+Macro at the train-chosen threshold 0.600: P 50.0 / R 100.0 / F 66.7 vs
+paper 83.3 / 50.0 / 62.5 on 10-candidate pools (caveats in RESULTS.md: no
+sample-free queries in Sample100 -> R pegged at 100, P = top-1 accuracy).
+Feature importances: path geometry dominates (avg_slope .130, avg_cost .107,
+min_cost .100) — the melodic-confound failure mode is what the RF separates.
+Model: plots/rf/rf_model.joblib (gitignored, regenerable in ~40 min).
