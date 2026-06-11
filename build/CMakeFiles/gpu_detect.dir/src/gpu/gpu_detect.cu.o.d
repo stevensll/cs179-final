@@ -228,13 +228,16 @@ CMakeFiles/gpu_detect.dir/src/gpu/gpu_detect.cu.o : /home/slei3/cs179-final/src/
     /usr/include/c++/11/bits/stl_bvector.h \
     /usr/include/c++/11/bits/vector.tcc \
     /usr/include/c++/11/pstl/execution_defs.h \
-    /usr/include/c++/11/chrono \
-    /usr/include/c++/11/ratio \
-    /usr/include/c++/11/cstdint \
+    /usr/include/c++/11/atomic \
+    /usr/include/c++/11/bits/atomic_base.h \
     /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h \
     /usr/include/stdint.h \
     /usr/include/x86_64-linux-gnu/bits/wchar.h \
     /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+    /usr/include/c++/11/bits/atomic_lockfree_defines.h \
+    /usr/include/c++/11/chrono \
+    /usr/include/c++/11/ratio \
+    /usr/include/c++/11/cstdint \
     /usr/include/c++/11/ctime \
     /usr/include/c++/11/bits/parse_numbers.h \
     /usr/include/c++/11/cstdio \
@@ -333,6 +336,28 @@ CMakeFiles/gpu_detect.dir/src/gpu/gpu_detect.cu.o : /home/slei3/cs179-final/src/
     /usr/include/c++/11/bits/allocated_ptr.h \
     /usr/include/c++/11/bits/fs_dir.h \
     /usr/include/c++/11/bits/fs_ops.h \
+    /usr/include/c++/11/fstream \
+    /usr/include/x86_64-linux-gnu/c++/11/bits/basic_file.h \
+    /usr/include/x86_64-linux-gnu/c++/11/bits/c++io.h \
+    /usr/include/c++/11/bits/fstream.tcc \
+    /usr/include/c++/11/future \
+    /usr/include/c++/11/mutex \
+    /usr/include/c++/11/bits/std_mutex.h \
+    /usr/include/c++/11/bits/unique_lock.h \
+    /usr/include/c++/11/condition_variable \
+    /usr/include/c++/11/bits/atomic_futex.h \
+    /usr/include/c++/11/bits/std_thread.h \
+    /usr/include/c++/11/thread \
+    /usr/include/c++/11/bits/this_thread_sleep.h \
+    /usr/include/unistd.h \
+    /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
+    /usr/include/x86_64-linux-gnu/bits/environments.h \
+    /usr/include/x86_64-linux-gnu/bits/confname.h \
+    /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
+    /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
+    /usr/include/x86_64-linux-gnu/bits/unistd.h \
+    /usr/include/x86_64-linux-gnu/bits/unistd_ext.h \
+    /usr/include/linux/close_range.h \
     /home/slei3/cs179-final/src/gpu/../common/audio.hpp \
     /home/slei3/cs179-final/src/gpu/../common/params.hpp \
     /usr/include/c++/11/cstddef \

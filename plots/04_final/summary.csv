@@ -1,0 +1,25 @@
+section,name,total_ns,total_ms,count,pct_of_section,category
+kernel,"sd::<unnamed>::fused_wh_ratio_kernel(const float *, const float *, const float *, float *, int, int, int)",4538238887,4538.239,120,50.02,NMF elementwise
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x64_16x6_tn_align1>(T1::Params),1908555829,1908.556,120,21.03,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_256x64_16x4_nt_align1>(T1::Params),1125103761,1125.104,120,12.40,GEMM
+kernel,"sd::<unnamed>::distance_batched_kernel(const float *, int, const float *, int, int, float *)",811596227,811.596,14,8.94,distance/znorm
+kernel,"sd::<unnamed>::dtw_band_kernel(int, int, int, int, const float *, float4 *)",497139382,497.139,14,5.48,DTW
+kernel,"sd::<unnamed>::update_h_batched_kernel(float *, const float *, const float *, int)",97944589,97.945,120,1.08,NMF elementwise
+kernel,"sd::<unnamed>::row_sum_batched_kernel(const float *, int, int, float *)",32489261,32.489,120,0.36,NMF elementwise
+kernel,"sd::<unnamed>::col_sum_batched_kernel(const float *, int, int, float *)",30272884,30.273,120,0.33,NMF elementwise
+kernel,"sd::<unnamed>::update_w_batched_kernel(float *, const float *, const float *, int, int, int)",20730790,20.731,120,0.23,NMF elementwise
+kernel,"sd::<unnamed>::max_normalize_batched_kernel(float *, int, int, int)",6383397,6.383,5,0.07,NMF elementwise
+kernel,"sd::<unnamed>::normalize_fixed_columns_batched_kernel(float *, int, int, int)",1653849,1.654,5,0.02,NMF elementwise
+kernel,"sd::<unnamed>::znorm_batched_kernel(const float *, int, int, int, int, float *)",1450104,1.450,5,0.02,distance/znorm
+kernel,"sd::<unnamed>::magnitude_kernel(const float2 *, int, float *)",843580,0.844,1,0.01,STFT
+kernel,"sd::<unnamed>::pitch_templates_batched_kernel(const float *, float *, int, int, int, int)",381150,0.381,5,0.00,other kernels
+kernel,"void vector_fft_symm_r2c<(unsigned int)4096, EPT<(unsigned int)16>, (unsigned int)1, (unsigned int)10, (padding_t)70, (twiddle_t)0, (loadstore_modifier_t)2, (layout_t)0, unsigned int, float>(kernel_arguments_t<T9>)",342079,0.342,1,0.00,STFT
+kernel,"sd::<unnamed>::window_frames_kernel(const float *, int, float *)",300031,0.300,1,0.00,STFT
+category,GEMM,3033659590,3033.660,,,
+category,NMF elementwise,4727713657,4727.714,,,
+category,DTW,497139382,497.139,,,
+category,distance/znorm,813046331,813.046,,,
+category,STFT,1485690,1.486,,,
+category,other kernels,381150,0.381,,,
+category,GPU idle (est.),616118313,616.118,,,
+wall,cuda_active_span,9689544113,9689.544,,,

@@ -114,12 +114,47 @@ true original lands far above chance but melodic-resemblance confounds take
 
 ## Performance
 
-Full GPU library scan (full songs, 60 NMF iterations, 41 pitch shifts, dense
-4 s window search, 3 candidates): **~35 s** (was ~120 s before the cuBLAS
-strided-batched PFNMF + banded-DTW redesign). Earlier matched-config benchmark
-of the v1 pipeline: CPU 149 s vs GPU 2.2 s (68×); the CPU demo still implements
-the v1 algorithm (see `TODO.md`), so v2 CPU numbers don't exist yet — a full v1
-CPU library scan extrapolates to hours either way.
+After the profiled optimization campaign (per-iteration nsys reports and
+matplotlib plots in `plots/`; full narrative in the CLAUDE.md build log):
+
+| | time |
+|---|---:|
+| 5-candidate library scan (full songs, 60 iters, 41 shifts) | **3.2 s** (was 42 s) |
+| full-song query vs 64-candidate library (warm template cache) | **21 s** (was ~7 min) |
+| 15 s clip vs 64-candidate library (warm cache) | **2.5 s** |
+
+The single largest algorithmic win is the log-frequency front end (D6 in
+`docs/PAPER-MAPPING.md`): pooling the spectrum to 367 log-spaced bins cuts all
+downstream compute ~5.6× *and* turns pitch shifts into exact integer template
+translations — accuracy held (eval MRR 0.354 → 0.363). A config matrix
+(`-DSD_DEFS=...`, swept by `tools/sweep_configs.py`) maps the
+approximation-vs-accuracy Pareto frontier (`plots/sweep/pareto.png`).
+
+### Optimization iterations
+
+Standard benchmark throughout: the 5-candidate full-song library scan
+(`music/`, `--iters 60`, both GPUs unless noted). Every kept change passed the
+verification ladder (canary + synthetics: exact shifts/locations) and the
+eval-5 rank gate; profile evidence per iteration lives in `plots/`.
+
+| # | Change | Scan | Note |
+|---|---|---:|---|
+| 0 | v3 algorithm, pre-optimization | 42.0 s | baseline; profile `00_baseline` (DTW = 33.6% of wall, 325k launches/candidate) |
+| 1 | TF32 math mode + elementwise kernel restructure | 37.2 s | scores drift ≤1e-4 |
+| 2 | Persistent-band DTW kernel over diagonal-skewed distance layout | 21.0 s | bit-identical; DTW 33.6% → 2.2%; killed ~80 GB traffic + 600 MB D2H per candidate |
+| 3 | Multi-GPU (worker per device, shared queue) | 12.8 s | bit-identical |
+| 4 | Simultaneous-update NMF (3 GEMMs + 1 ratio/iter, was 4+2) | 9.3 s | *improved* eval ranks (MRR 0.215 → 0.354) |
+| — | Two-stage shift screening (15/8, then 25/16) | — | **reverted**: eval gate failed both times (MRR → 0.186/0.221) |
+| 5 | Fused custom W·H+ratio kernel (k ≤ 64 single tile; `WH` never materialized) | 9.3 s | bit-identical; single-GPU 14.1 → 10.6 s (2-GPU masked by 3/2 split) |
+| 6 | Host-init cache + sync removal + longest-first queue | 8.8 s | byte-identical |
+| 7 | Candidate-template disk cache (`.tcache`) + decode prefetch | 7.5 s | clip search 21.7 → 7.9 s |
+| 8 | Cross-candidate PFNMF batching + persistent per-worker scratch + fair groups | 6.9 s | clip 4.9 s; fixed two scheduling bugs found by measurement |
+| 9 | `--use_fast_math` | ~6.9 s | ~5% across workloads; scores identical to 4 decimals |
+| — | 128×64 fused tile (Boehm-style) | — | **reverted**: measured neutral (H slabs already L2-resident) |
+| 10 | Log-frequency front end (367 bins, shifts = exact translations) | **3.2 s** | MRR 0.354 → 0.363; full-song-vs-64 60.2 → 21.2 s; profile `05_mel` |
+
+Historical v1 reference: CPU 149 s vs GPU 2.2 s (68×) on a matched config; the
+CPU demo still implements the v1 algorithm (see `TODO.md`).
 
 ## Potential improvements
 

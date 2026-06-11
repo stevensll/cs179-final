@@ -265,3 +265,139 @@ stealing #1 — the missing-classifier gap, now quantified. T006 (rank 57) is an
 outlier worth investigating (listen to T006/T007 audio quality first).
 GPU utilization during the run: 86% avg SM on GPU1, dips = per-candidate host
 setup; GPU0 idle (tools/plot_gpu_load.py, build/gpu_load.png).
+
+### 2026-06-11 — performance push: 42 s -> ~8.8 s scan (4.8x), nsys-gated loop
+
+Steven supplied docs/OPTIMIZATIONS_{CHATGPT,GEMINI}.md to evaluate; every change
+was gated on the verification ladder AND the eval-5 ranks (T001/4/6/8/9).
+Profiles + plots per iteration in plots/ (00_baseline, 01_tf32_dtw, 02_fused).
+
+Adopted, in order (5-candidate music/ scan, --iters 60):
+- TF32 tensor-core GEMMs via cublasGemmStridedBatchedEx + explicit
+  CUBLAS_COMPUTE_32F_FAST_TF32 (math-mode alone was ignored for the NN shape);
+  per-device handles. 42 -> 37 s.
+- Persistent-band DTW kernel: one block per (matrix, band) sweeps all
+  anti-diagonals in shared memory over a DIAGONAL-SKEWED distance layout
+  (anti-diagonals contiguous -> coalesced); slope filter + min/mean/argmin
+  reduce in-kernel to 4 floats/band. Replaced ~325k launches/candidate (was
+  33.6% of wall) + 80 GB C/L traffic + 600 MB D2H. Bit-identical scores.
+  37 -> 21 s. Skew layout OOM'd 7-min Sample100 candidates (No*(No+Ns) is
+  ~quadratic) -> distance+DTW chunked over the shift axis (4 GB budget).
+- Multi-GPU: worker thread per device, shared candidate queue (gpu_detect
+  --gpus), eval --gpus N pins query subprocesses. 21 -> 12.8 s.
+- Interleaved (simultaneous Lee-Seung) NMF update: 3 GEMMs + 1 ratio per iter
+  (was 4 + 2). Gate IMPROVED: eval-5 ranks (2,3,6,17,57) -> (12,2,54,1,6),
+  first hit@1, MRR 0.215 -> 0.354. 12.8 -> 9.3 s.
+- Fused custom W*H+ratio kernel (k=R<=64 single shared tile, division
+  epilogue): WH never materialized; ~8 TFLOPS vs cuBLAS's sgemm on the same
+  skinny shape, plus two full WH passes eliminated. Bit-identical scores.
+  Single-GPU wall 20.2 -> 14.1 s (2-GPU scan masked by 3/2 split).
+- Host-init cache (seeded_cached): PFNMF's 23M-float mt19937 init regenerated
+  per candidate was ~25% of the idle gap; cached per worker, byte-identical.
+  9.3 -> 8.8 s.
+
+Tried and REVERTED (gate failures, machinery kept disabled in params.hpp):
+- Two-stage shift screening 15/8 AND 25/16: MRR 0.354 -> 0.186 / 0.221, a
+  rank-1 hit fell to rank 5. Partially-converged interim scores mixed into
+  the selectivity medians corrupt cross-candidate comparability.
+- Plain --iters 30: ladder separation visibly eroded (canary 0.11 -> 0.24).
+
+Rejected on measurement (advice-file items): warp-shuffle reductions, znorm
+single-pass, Hann/pitch tables, coalescing fixes for col_sum/magnitude, cuFFT
+plan cache (STFT = 0.0% of wall), distance-as-cuBLAS.
+
+Final profile (plots/02_fused): top kernel = our fused custom kernel (54% of
+kernel time, compute-dense), then TF32 tensor-core GEMMs — the plan's stop
+condition. Remaining idle ~25% is audio decode + per-candidate setup
+(prefetch pipelining left as TODO).
+
+Net: 5-candidate scan 42 -> 8.8 s (4.8x); single pair 4.4 -> ~1.6 s effective;
+64-candidate eval query ~7 min -> ~70 s (pre-pruning measurement; the final
+gate run will refresh); full 73-query eval ~8.5 h -> ~40 min estimate.
+
+### 2026-06-11 — candidate-template cache + decode prefetch
+
+- Candidate-side product (Wo, Zo) split out as gpu_candidate_templates() and
+  disk-cached per library song (<library>/.tcache/*.tc; invalidated by audio
+  size+mtime + param/iters fingerprint; tmp+rename for concurrent workers;
+  --no-cache to bypass). Byte-stable -> scores identical by construction
+  (verified: ladder + eval-5 gate MRR 0.354 unchanged).
+- One-deep std::async decode prefetch per worker (skips decode when the cache
+  probe passes); longest-first candidate ordering; removed redundant
+  cudaDeviceSynchronize calls (the latter two measured neutral at small scale,
+  kept as hygiene).
+- Measured: 15 s clip vs 64-song library 21.7 -> 12.4 s cold -> **7.9 s warm**;
+  full-query 5-cand scan 8.8 -> 7.5 s warm. Eval queries vs the Sample100
+  library now ~35-50 s each once .tcache is warm.
+- eval_sample100.py --gpus N now round-robins N pinned worker processes onto
+  the physical GPUs (N=4 -> 2 processes/GPU to fill host-gap idle).
+
+### 2026-06-11 — cross-candidate PFNMF batching + fast-math (goal: speedup vs baseline)
+
+Baseline (warm tcache, --iters 60, 2 GPUs): 5-cand scan 7.5 s · full-song
+Hung Up vs 64-cand library 68.8 s · 15 s clip vs 64 4.9... 7.9 s.
+
+Changes, gated (ladder bit-identical; eval-5 MRR 0.354 unchanged throughout):
+- gpu_score_candidates(): ONE stacked PFNMF over (candidates x shifts) —
+  every problem is query-sized so candidates batch without padding; scoring
+  (candidate-length-dependent distance/DTW) stays per-candidate. Group size =
+  min(memory budget / V-slab, fair share per device). Two scheduling bugs
+  found by measurement: (1) pre-claiming the next group for prefetch starved
+  the other GPU on small libraries (a 2-group scan ran entirely on one
+  device); (2) the memory-derived group of 4 made a 5-candidate scan split
+  4-vs-1 — fixed by the fairness cap.
+- Persistent ScoreContext per worker (grow-only device scratch): re-allocating
+  the multi-GB workspace per group serialized the two workers on the driver's
+  process-wide cudaMalloc/cudaFree lock (and every cudaFree device-syncs).
+- --use_fast_math (Steven's suggestion): ladder scores identical to 4
+  decimals, ~5% across workloads (the fused kernel's 600M divisions/candidate
+  take the approximate-reciprocal path; denormal flush is benign under the
+  eps guards).
+- Tried and REVERTED: 128x64 fused-kernel tile (Boehm-style traffic cut) —
+  measured neutral; each problem's 1.7 MB H slab already lives in L2, so the
+  predicted DRAM saving never existed. 64x64 restored.
+
+**Final figures (same protocol as baseline):**
+  5-cand scan            7.5 -> 6.9 s   (1.09x)
+  full-song vs 64-lib   68.8 -> 60.2 s  (1.14x)
+  15 s clip vs 64-lib    7.9 -> 4.9 s   (1.61x)
+Batching pays where individual problems are small (clips), as predicted.
+Final profile plots/04_final: 93.6% GPU-busy single-GPU (idle 6.4%, was 28%
+pre-batching); launches per candidate ~130 (was ~325k at project baseline).
+Cumulative since the original implementation: 5-cand scan 42 -> 6.9 s (6.1x);
+clip search 21.7 -> 4.9 s (4.4x) on top of the tcache wins.
+
+### 2026-06-11 — log-frequency front end + config-matrix Pareto sweep
+
+**Mel/log-frequency front end (docs/PAPER-MAPPING.md D6):** triangular
+log-spaced filterbank (4 bins/semitone from 55 Hz -> 367 analysis bins) pooled
+in as one GEMM after the STFT. Two effects: ~5.6x less compute everywhere
+downstream of the spectrogram, and pitch shifts become EXACT integer template
+translations (the old linear-axis rescale interpolation — the thing that made
+fractional-shift misses fatal — is gone when mel is on). Gates: ladder
+structurally clean (exact shifts/locations, dips shallower as expected from
+pooling), Hung Up pair #1 decisive, eval-5 MRR 0.354 -> 0.363.
+Profile plots/05_mel: PFNMF collapsed; distance/znorm (23.5%) + DTW (14.3%)
+now co-dominant — both time-axis costs, which motivated the hop knobs below.
+
+**Config matrix:** params.hpp knobs are #ifndef-wrapped (SD_MEL_BINS,
+SD_BINS_PER_ST, SD_RANK_K/L, SD_HOP, SD_SHIFT_STEP4, SD_WINDOW_HOP_SECONDS);
+cmake -DSD_DEFS="..." stamps variants; tcache filenames carry the fingerprint
+so variants' caches coexist. tools/sweep_configs.py builds each variant,
+measures warm scan time + Sample100 subset MRR, merges results across runs,
+and plots the Pareto frontier (plots/sweep/).
+
+**Sweep results (9-query subset, +-0.05 MRR noise; plots/sweep/pareto.png):**
+  config     scan   eval s/q  MRR    note
+  linear      6.9    44.1     0.375  pre-mel config — strictly DOMINATED
+  mel4        3.2    14.4     0.317  (default at sweep time)
+  mel2        2.8    11.6     0.348  2 bins/st holds up
+  mel4_k24    2.9    12.5     0.285  K=24 below the rank floor
+  mel4_k32    3.0    13.4     0.384  accuracy champion, faster than K=40
+  mel2_k24    2.4     9.9     0.309
+  hop2048     2.0     6.9     0.357  2.1x measured (2.2x predicted)
+  shift05     2.3     8.4     0.318  0.5-st grid safe under exact translations
+  bandhop2    3.0    13.2     0.308  ~nothing, as predicted — dead
+  hop_shift   1.6     3.6     0.329  4x vs mel4 default, accuracy held
+Frontier: hop_shift -> hop2048 -> mel4_k32. Full-73-query confirmation run of
+mel4_k32 in flight before any default change.

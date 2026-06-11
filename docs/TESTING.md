@@ -7,15 +7,18 @@ automatically. Status as of 2026-06-10 (v3: K=40, pitch-selectivity scoring,
 ## Real-world pairs (files verified correct by Steven)
 
 1. Input: `Lucid Dreams.wav` → Expected: `Shape of My Heart.wav`
-   **Status: NEAR MISS** — true match is found (cand @8s, +0.00 st, the riff)
-   at 0.591 but ranks #2 behind Gimme Gimme at 0.542 (+2.00 st), a genuine
+   **Status: NEAR MISS** (re-checked 2026-06-11 post-optimization) — Shape
+   ranks #2 (0.627) behind Gimme Gimme (0.506, +0.00 st), a genuine
    melodic-resemblance confound (both songs are built on minor-key arpeggio
    riffs). Passed when the library had 3 songs; the confound arrived with the
-   new candidates.
+   new candidates. Since Gimme Gimme joined the library it tops BOTH failing
+   queries — the strongest instance yet of the sparse-clean-riff confound
+   class the paper's classifier stage exists to separate.
 
 2. Input: `Touch The Sky.wav` → Expected: `Move On Up.wav`
-   **Status: FAIL** — true match found consistently (−0.50 st) but weak
-   (0.727, rank 3) behind two melodic-resemblance confounds (0.607/0.631).
+   **Status: FAIL** (re-checked 2026-06-11) — true match found consistently
+   (−0.50 st, 0.705, rank 3) behind two melodic-resemblance confounds
+   (Gimme Gimme 0.550, Shape 0.595).
    NOTE: an earlier session concluded the files didn't share literal audio;
    Steven has verified the files are correct, and that conclusion is
    RETRACTED — the probes used were fingerprint-class full-spectrum matchers,

@@ -3,6 +3,15 @@
 Updated 2026-06-10 after v3 (files verified by Steven, K=40, selectivity
 scoring, Hung Up pair added). See CLAUDE.md build log for history.
 
+## Config / approximation frontier
+
+- [ ] Decide the production default from the sweep (plots/sweep/pareto.png):
+      mel4_k32 (accuracy champion) vs hop2048 (2x faster, -0.03 MRR on n=9).
+      Full-73-query confirmation of mel4_k32 pending; rerun frontier points on
+      the full set before locking.
+- [ ] Knobs swept so far: mel bins/resolution, K, hop, shift grid, band hop.
+      Untried: SD_RANK_L, WINDOW_SECONDS, iters axis (accelerated MU).
+
 ## Accuracy (the open front)
 
 - [ ] **The paper's 13 path features + random-forest classifier** — now clearly
@@ -47,14 +56,18 @@ scoring, Hung Up pair added). See CLAUDE.md build log for history.
 
 ## Performance
 
-- [ ] DTW: tiled multi-diagonal kernel (still one launch per anti-diagonal;
-      ~200k small launches per candidate at 4 s bands — measure first).
-- [ ] Multi-GPU: split candidates across the two A5000s.
-- [ ] cuFFT plan reuse across candidates (one plan per unique frame count).
-- [ ] Profile with ncu for the report's per-kernel analysis; the three-way NMF
-      benchmark (CPU / custom / cuBLAS) needs the custom GEMM reimplemented from
-      the v1 design (see CLAUDE.md log — the original was deleted in the v2
-      cuBLAS redesign and there is no git history to resurrect it from).
+Campaign of 2026-06-11 done: 42 s -> 8.8 s scan; see CLAUDE.md log + plots/.
+DTW persistent kernel, multi-GPU, TF32, interleaved NMF, fused W*H+ratio
+custom kernel, host-init cache all landed; cuFFT plan reuse measured
+irrelevant (STFT = 0.0% of wall). Remaining:
+
+- [ ] Per-worker decode/setup prefetch (GPU idle ~25%, mostly audio decode
+      between candidates; overlap next candidate's host work with current
+      GPU work).
+- [ ] ncu deep-dive on fused_wh_ratio (54% of kernel time at ~8 TFLOPS —
+      double-buffering / vectorized smem loads might push it further).
+- [ ] Straggler balance: 2-GPU scans split whole candidates; long candidates
+      can leave one GPU idle at the tail (sort queue by length, longest first).
 
 ## Algorithm
 

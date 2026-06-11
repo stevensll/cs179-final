@@ -1,0 +1,10 @@
+# Tracks excluded from evaluation (wrong/missing audio).
+# One track id per line; '#' comments. See VERIFICATION.md for details.
+# Maintained by hand — re-add tracks here after re-sourcing fixes them.
+T108  # Gary Numan - Films: downloaded a 2022 live version, not the 1979 studio track
+T109  # DJ Qbert - Eight: downloaded an unrelated 8-second video
+T115  # Salt-N-Pepa - I Desire: downloaded an auto-generated mashup
+T157  # Geto Boys - Fuck a War: download failed (YouTube age restriction)
+# T056 (Blowfly - Outro, 69s) and T146 (De La Soul - De la Orgee, 74s) were
+# flagged for short duration only — plausibly genuine; spot-listen before
+# deciding. Not excluded for now.

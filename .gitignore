@@ -1,0 +1,20 @@
+# build outputs
+build/
+
+# audio: copyrighted music and regenerable fixtures (tests/make_fixtures.sh,
+# tools/scrape_sample100.py rebuild everything)
+*.wav
+datasets/sample100/audio/
+datasets/sample100/library/
+datasets/sample100/results/
+datasets/sample100/download_log.csv
+
+# candidate-template caches (regenerated on demand, fingerprint-keyed)
+.tcache/
+
+# profiler artifacts
+*.nsys-rep
+*.sqlite
+
+__pycache__/
+*.pyc

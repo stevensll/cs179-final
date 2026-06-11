@@ -17,11 +17,14 @@ top-3 listing) and a summary (hit@1, hit@3, MRR) on stdout.
 
 import argparse
 import csv
+import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 RANK_RE = re.compile(r"^\s*(\d+)\.\s+(.+?\.wav)\s+score\s+([0-9.]+)")
@@ -43,9 +46,12 @@ def build_library(audio: Path, originals, lib: Path):
     return present
 
 
-def run_query(binary, iters, query_path, lib):
+def run_query(binary, iters, query_path, lib, gpu=None):
+    env = dict(os.environ)
+    if gpu is not None:
+        env["CUDA_VISIBLE_DEVICES"] = str(gpu)  # pin; gpu_detect sees one device
     r = subprocess.run([binary, "--iters", str(iters), str(query_path), str(lib)],
-                       capture_output=True, text=True, timeout=3600)
+                       capture_output=True, text=True, timeout=3600, env=env)
     ranking = []  # [(rank, file, score)]
     in_ranking = False
     for line in r.stdout.splitlines():
@@ -68,6 +74,13 @@ def main():
     ap.add_argument("--queries", default="", help="comma-separated query track ids")
     ap.add_argument("--full-library", action="store_true",
                     help="use the whole audio dir as candidates (adds queries as distractors)")
+    ap.add_argument("--gpus", type=int, default=1,
+                    help="N>1: run N queries concurrently, each pinned to one GPU via "
+                         "CUDA_VISIBLE_DEVICES; N=1 (default): one query at a time, "
+                         "gpu_detect spreads its candidates over all GPUs itself")
+    ap.add_argument("--tag", default="",
+                    help="also write results to results_<tag>.csv (results.csv is "
+                         "overwritten every run)")
     args = ap.parse_args()
 
     data = Path(args.data)
@@ -108,40 +121,69 @@ def main():
     mrr_sum = 0.0
     skipped = []
     t0 = time.time()
+
+    work = []  # (query_file, expected_in_lib)
+    for q, exp in sorted(expected.items()):
+        if only and q not in only:
+            continue
+        if not (audio / q).exists():
+            skipped.append((q, "query audio missing"))
+            continue
+        exp_in_lib = exp & lib_files
+        if not exp_in_lib:
+            skipped.append((q, "no expected original downloaded yet"))
+            continue
+        work.append((q, exp_in_lib))
+        if args.limit and len(work) >= args.limit:
+            break
+
+    lock = threading.Lock()
+    import queue as _queue
+    n_dev = 1
+    try:
+        n_dev = max(1, subprocess.run(["nvidia-smi", "-L"], capture_output=True,
+                                      text=True).stdout.strip().count("\n") + 1)
+    except OSError:
+        pass
+    gpu_pool = _queue.Queue()
+    for g in range(max(1, args.gpus)):
+        # workers > devices round-robin onto physical GPUs: two processes per
+        # GPU fill each other's host-side idle gaps (decode, setup)
+        gpu_pool.put(g % n_dev if args.gpus > 1 else None)  # None = no pin
+
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["query", "n_expected", "n_expected_in_lib", "best_expected_rank",
                     "n_candidates", "hit1", "hit3", "top3"])
-        for q, exp in sorted(expected.items()):
-            if only and q not in only:
-                continue
-            if not (audio / q).exists():
-                skipped.append((q, "query audio missing"))
-                continue
-            exp_in_lib = exp & lib_files
-            if not exp_in_lib:
-                skipped.append((q, "no expected original downloaded yet"))
-                continue
-            if args.limit and n_eval >= args.limit:
-                break
 
-            ranking, rc, err = run_query(args.binary, args.iters, audio / q, lib)
-            if rc != 0 or not ranking:
-                skipped.append((q, f"gpu_detect failed: {err.strip()[:80]}"))
-                continue
-            rank_of = {name: rank for rank, name, _ in ranking}
-            best = min((rank_of.get(e, 10**9) for e in exp_in_lib))
-            hit1, hit3 = best == 1, best <= 3
-            n_eval += 1
-            n_hit1 += hit1
-            n_hit3 += hit3
-            mrr_sum += 1.0 / best if best < 10**9 else 0.0
-            top3 = "; ".join(f"{n}:{s:.3f}" for _, n, s in ranking[:3])
-            w.writerow([q, len(exp), len(exp_in_lib), best, len(ranking),
-                        int(hit1), int(hit3), top3])
-            f.flush()
-            print(f"{q}: best expected rank {best}/{len(ranking)} "
-                  f"{'HIT' if hit1 else 'miss'}  [{time.time()-t0:.0f}s]")
+        def do_query(item):
+            nonlocal n_eval, n_hit1, n_hit3, mrr_sum
+            q, exp_in_lib = item
+            gpu = gpu_pool.get()
+            try:
+                ranking, rc, err = run_query(args.binary, args.iters, audio / q, lib, gpu)
+            finally:
+                gpu_pool.put(gpu)
+            with lock:
+                if rc != 0 or not ranking:
+                    skipped.append((q, f"gpu_detect failed: {err.strip()[:80]}"))
+                    return
+                rank_of = {name: rank for rank, name, _ in ranking}
+                best = min((rank_of.get(e, 10**9) for e in exp_in_lib))
+                hit1, hit3 = best == 1, best <= 3
+                n_eval += 1
+                n_hit1 += hit1
+                n_hit3 += hit3
+                mrr_sum += 1.0 / best if best < 10**9 else 0.0
+                top3 = "; ".join(f"{n}:{s:.3f}" for _, n, s in ranking[:3])
+                w.writerow([q, len(exp_in_lib), len(exp_in_lib), best, len(ranking),
+                            int(hit1), int(hit3), top3])
+                f.flush()
+                print(f"{q}: best expected rank {best}/{len(ranking)} "
+                      f"{'HIT' if hit1 else 'miss'}  [{time.time()-t0:.0f}s]", flush=True)
+
+        with ThreadPoolExecutor(max_workers=max(1, args.gpus)) as ex:
+            list(ex.map(do_query, work))
 
     print(f"\n=== summary ===")
     print(f"queries evaluated: {n_eval}  (skipped {len(skipped)})")
@@ -151,6 +193,9 @@ def main():
         print(f"MRR:   {mrr_sum/n_eval:.3f}")
     for q, why in skipped:
         print(f"  skipped {q}: {why}")
+    if args.tag:
+        import shutil
+        shutil.copy(out_csv, results_dir / f"results_{args.tag}.csv")
     print(f"per-query detail: {out_csv}")
     return 0 if n_eval else 1
 

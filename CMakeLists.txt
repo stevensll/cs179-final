@@ -34,6 +34,13 @@ add_executable(gpu_detect
 target_include_directories(gpu_detect PRIVATE ${SNDFILE_INCLUDE_DIRS})
 target_compile_options(gpu_detect PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-O3 -Wall -Wextra>
-    $<$<COMPILE_LANGUAGE:CUDA>:-O3 --generate-line-info>
+    $<$<COMPILE_LANGUAGE:CUDA>:-O3 --generate-line-info --use_fast_math>
 )
 target_link_libraries(gpu_detect PRIVATE CUDA::cufft CUDA::cublas ${SNDFILE_LIBRARIES} Threads::Threads)
+
+# Config-matrix variants: cmake -DSD_DEFS="SD_MEL_BINS=0;SD_RANK_K=24" stamps a
+# build with overridden knobs (see params.hpp; tools/sweep_configs.py drives this).
+set(SD_DEFS "" CACHE STRING "semicolon-separated SD_* definitions for config variants")
+if(SD_DEFS)
+    target_compile_definitions(gpu_detect PRIVATE ${SD_DEFS})
+endif()

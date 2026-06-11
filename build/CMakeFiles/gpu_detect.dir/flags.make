@@ -7,7 +7,7 @@ CUDA_DEFINES =
 
 CUDA_INCLUDES = --options-file CMakeFiles/gpu_detect.dir/includes_CUDA.rsp
 
-CUDA_FLAGS = -O3 -DNDEBUG -std=c++17 -arch=native -O3 --generate-line-info
+CUDA_FLAGS = -O3 -DNDEBUG -std=c++17 -arch=native -O3 --generate-line-info --use_fast_math
 
 CXX_DEFINES = 
 

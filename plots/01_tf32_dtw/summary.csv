@@ -1,0 +1,36 @@
+section,name,total_ns,total_ms,count,pct_of_section,category
+kernel,"sd::<unnamed>::ratio_batched_kernel(const float *, const float *, float *, unsigned long)",6316443484,6316.443,1200,39.50,NMF elementwise
+kernel,ampere_sgemm_128x128_nn,4995711577,4995.712,600,31.24,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x64_16x6_tn_align1>(T1::Params),1934726450,1934.726,300,12.10,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_256x64_16x4_nt_align1>(T1::Params),1138297188,1138.297,300,7.12,GEMM
+kernel,"sd::<unnamed>::distance_batched_kernel(const float *, int, const float *, int, int, float *)",811928146,811.928,5,5.08,distance/znorm
+kernel,"sd::<unnamed>::dtw_band_kernel(int, int, int, int, const float *, float4 *)",448953283,448.953,5,2.81,DTW
+kernel,"sd::<unnamed>::update_h_batched_kernel(float *, const float *, const float *, int)",99975131,99.975,600,0.63,NMF elementwise
+kernel,"sd::<unnamed>::row_sum_batched_kernel(const float *, int, int, float *)",38554658,38.555,600,0.24,NMF elementwise
+kernel,"sd::<unnamed>::col_sum_batched_kernel(const float *, int, int, float *)",32475028,32.475,600,0.20,NMF elementwise
+kernel,"sd::<unnamed>::update_w_batched_kernel(float *, const float *, const float *, int, int, int)",28087053,28.087,600,0.18,NMF elementwise
+kernel,ampere_sgemm_128x64_nn,25702845,25.703,240,0.16,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x64_16x6_nt_align1>(T1::Params),25100885,25.101,240,0.16,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x128_32x3_tn_align1>(T1::Params),21565883,21.566,240,0.13,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_128x64_16x6_nn_align4>(T1::Params),14163305,14.163,120,0.09,GEMM
+kernel,ampere_sgemm_64x64_nn,13175850,13.176,120,0.08,GEMM
+kernel,ampere_sgemm_128x32_nn,11533866,11.534,120,0.07,GEMM
+kernel,"sd::<unnamed>::max_normalize_batched_kernel(float *, int, int, int)",8300691,8.301,10,0.05,NMF elementwise
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x64_32x6_tn_align4>(T1::Params),5873173,5.873,60,0.04,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x64_16x10_nt_align4>(T1::Params),5342838,5.343,60,0.03,GEMM
+kernel,"void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, float, float, float, (bool)1, (bool)0, (bool)0>(cublasLt::cublasSplitKParams<T6>, const T4 *, const T5 *, T5 *, const T6 *, const T6 *, const T7 *, const T4 *, T7 *, void *, long, T6 *, int *)",3769652,3.770,480,0.02,GEMM
+kernel,"sd::<unnamed>::magnitude_kernel(const float2 *, int, float *)",3697498,3.697,6,0.02,STFT
+kernel,"sd::<unnamed>::normalize_fixed_columns_batched_kernel(float *, int, int, int)",1651007,1.651,5,0.01,NMF elementwise
+kernel,"sd::<unnamed>::window_frames_kernel(const float *, int, float *)",1534751,1.535,6,0.01,STFT
+kernel,"void vector_fft_symm_r2c<(unsigned int)4096, EPT<(unsigned int)16>, (unsigned int)1, (unsigned int)10, (padding_t)70, (twiddle_t)0, (loadstore_modifier_t)2, (layout_t)0, unsigned int, float>(kernel_arguments_t<T9>)",1516927,1.517,6,0.01,STFT
+kernel,"sd::<unnamed>::znorm_batched_kernel(const float *, int, int, int, int, float *)",1509467,1.509,10,0.01,distance/znorm
+kernel,"sd::<unnamed>::pitch_templates_batched_kernel(const float *, float *, int, int, int, int)",418398,0.418,5,0.00,other kernels
+kernel,"sd::<unnamed>::normalize_columns_kernel(float *, int, int, float *, int)",115649,0.116,5,0.00,NMF elementwise
+category,GEMM,8194963512,8194.964,,,
+category,NMF elementwise,6525602701,6525.603,,,
+category,DTW,448953283,448.953,,,
+category,distance/znorm,813437613,813.438,,,
+category,STFT,6749176,6.749,,,
+category,other kernels,418398,0.418,,,
+category,GPU idle (est.),4189869443,4189.869,,,
+wall,cuda_active_span,20179994126,20179.994,,,

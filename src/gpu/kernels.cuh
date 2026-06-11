@@ -12,8 +12,11 @@ namespace sd {
 void launch_window_frames(const float* x, int frames, float* out);
 void launch_magnitude(const cufftComplex* cplx, int frames, float* V);
 
-/* NMF elementwise/reduction steps over P stacked (M x N) problems; V shared. */
-void launch_ratio_batched(const float* V, const float* WH, float* Z, size_t mn, int P);
+/* NMF steps over P stacked (M x N) problems; V shared across problems. */
+/* Fused W*H + ratio epilogue: Z[b] = V ./ (W[b]*H[b] + eps); WH is never
+ * materialized. Requires R <= 64 (single shared k-tile). */
+void launch_fused_wh_ratio(const float* W, const float* H, const float* V,
+                           float* Z, int M, int N, int R, int P);
 void launch_col_sum_batched(const float* W, int M, int R, int P, float* out);
 void launch_row_sum_batched(const float* H, int R, int N, int P, float* out);
 void launch_update_h_batched(float* H, const float* numH, const float* wcol,
@@ -34,11 +37,19 @@ void launch_znorm_batched(const float* H, int R, int N, int K, int P, float* Z);
 void launch_distance_batched(const float* Zo, int No, const float* Zs, int Ns,
                              int K, int P, float* D);
 
-/* Banded subsequence-DTW wavefront step over anti-diagonal d. Bands are windows
- * of T consecutive candidate frames at row (band0+slot)*band_hop inside each of
- * the nmat (NoFull x Ns) distance matrices; C/L are (nmat*nslots) stacked
- * (T x Ns) cost/path-length matrices. */
-void launch_dtw_band_diag(int d, int NoFull, int T, int Ns, int nmat, int nslots,
-                          int band0, int band_hop, const float* D, float* C, float* L);
+/* Persistent banded subsequence-DTW: one block per (matrix, band) sweeps all
+ * anti-diagonals in-kernel over the SKEWED distance matrices and emits one
+ * float4 {min, mean, argmin, nvalid} of the slope-filtered, path-normalized
+ * cost function per band. */
+void launch_dtw_bands(int NoFull, int T, int Ns, int nmat, int nbands,
+                      int band_hop, const float* Dskew, float4* stats);
+
+/* Feature-mode variant: re-sweeps SELECTED bands (band_idx[f], all on the same
+ * distance matrix) recording a predecessor byte per cell (0=path start,
+ * 1=diagonal, 2=up, 3=left) plus the full last row {cost, len} — consumed by
+ * host-side backtracking for the classifier's path features. */
+void launch_dtw_band_preds(int NoFull, int T, int Ns, int nsel,
+                           const int* band_idx, int band_hop, const float* Dskew,
+                           unsigned char* preds, float2* lastrow);
 
 }  /* namespace sd */

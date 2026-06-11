@@ -41,6 +41,7 @@ there); this table mirrors it. All values from the paper unless marked *deviatio
 |---|---|---|
 | Analysis sample rate | 22 050 Hz | inputs decimated 2:1 from 44.1 kHz |
 | STFT | block 4096, hop 1024, Hann | 2049 bins, ~21.5 frames/s |
+| Log-frequency front end | `MEL_BINS`=367, 4 bins/semitone from 55 Hz | *deviation* (D6 in PAPER-MAPPING.md): triangular log-spaced pooling before NMF — ~5.6× less downstream compute AND pitch shifts become exact integer translations of templates; `-DSD_DEFS="SD_MEL_BINS=0"` restores the linear axis |
 | `RANK_K` | **40** | *deviation*: paper uses K=10 for a known ~4.5 s sample; we model the full candidate song, so the rank is content-scaled (paper §3.1.1 rationale) |
 | `RANK_L` | 20 | free mixture templates in PFNMF |
 | `DEFAULT_ITERS` | 100 | NMF multiplicative-update iterations (60 is plenty in practice) |

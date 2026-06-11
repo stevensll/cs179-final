@@ -1,0 +1,61 @@
+section,name,total_ns,total_ms,count,pct_of_section,category
+kernel,"sd::<unnamed>::dtw_band_diag_kernel(int, int, int, int, int, int, int, const float *, float *, float *)",11046452464,11046.452,1620696,42.98,DTW
+kernel,"sd::<unnamed>::ratio_batched_kernel(const float *, const float *, float *, unsigned long, unsigned long)",4434835063,4434.835,1200,17.26,NMF elementwise
+kernel,ampere_sgemm_128x128_nn,3594490185,3594.490,600,13.99,GEMM
+kernel,ampere_sgemm_128x128_tn,2931112342,2931.112,300,11.41,GEMM
+kernel,ampere_sgemm_128x128_nt,2766016390,2766.016,300,10.76,GEMM
+kernel,"sd::<unnamed>::distance_batched_kernel(const float *, int, const float *, int, int, float *)",563132086,563.132,5,2.19,distance/znorm
+kernel,ampere_sgemm_128x32_nn,80887634,80.888,600,0.31,GEMM
+kernel,"sd::<unnamed>::update_h_batched_kernel(float *, const float *, const float *, int, int, unsigned long)",79877322,79.877,600,0.31,NMF elementwise
+kernel,ampere_sgemm_64x64_tn,48384217,48.384,300,0.19,GEMM
+kernel,"sd::<unnamed>::col_sum_batched_kernel(const float *, int, int, float *)",32538137,32.538,600,0.13,NMF elementwise
+kernel,"sd::<unnamed>::update_w_batched_kernel(float *, const float *, const float *, int, int, int, unsigned long)",30842610,30.843,600,0.12,NMF elementwise
+kernel,"sd::<unnamed>::row_sum_batched_kernel(const float *, int, int, float *)",30800412,30.800,600,0.12,NMF elementwise
+kernel,void cutlass::Kernel2<cutlass_80_simt_sgemm_64x64_8x5_nt_align1>(T1::Params),22062595,22.063,180,0.09,GEMM
+kernel,void cutlass::Kernel2<cutlass_80_simt_sgemm_128x64_8x5_nt_align1>(T1::Params),19795272,19.795,120,0.08,GEMM
+kernel,"sd::<unnamed>::max_normalize_batched_kernel(float *, int, int, int)",6636343,6.636,10,0.03,NMF elementwise
+kernel,"sd::<unnamed>::magnitude_kernel(const float2 *, int, float *)",3696955,3.697,6,0.01,STFT
+kernel,"void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, float, float, float, (bool)1, (bool)0, (bool)0>(cublasLt::cublasSplitKParams<T6>, const T4 *, const T5 *, T5 *, const T6 *, const T6 *, const T7 *, const T4 *, T7 *, void *, long, T6 *, int *)",2004583,2.005,300,0.01,GEMM
+kernel,"sd::<unnamed>::normalize_fixed_columns_batched_kernel(float *, int, int, int)",1644064,1.644,5,0.01,NMF elementwise
+kernel,"sd::<unnamed>::window_frames_kernel(const float *, int, float *)",1529597,1.530,6,0.01,STFT
+kernel,"void vector_fft_symm_r2c<(unsigned int)4096, EPT<(unsigned int)16>, (unsigned int)1, (unsigned int)10, (padding_t)70, (twiddle_t)0, (loadstore_modifier_t)2, (layout_t)0, unsigned int, float>(kernel_arguments_t<T9>)",1505023,1.505,6,0.01,STFT
+kernel,"sd::<unnamed>::znorm_batched_kernel(const float *, int, int, int, int, float *)",1147872,1.148,10,0.00,distance/znorm
+kernel,"sd::<unnamed>::pitch_templates_batched_kernel(const float *, float *, int, int, int, int)",417217,0.417,5,0.00,other kernels
+kernel,"sd::<unnamed>::normalize_columns_kernel(float *, int, int, float *, int)",117279,0.117,5,0.00,NMF elementwise
+memop,[CUDA memcpy Device-to-Host],176939423,176.939,616,77.81,memcpy/memset
+memop,[CUDA memcpy Host-to-Device],50072066,50.072,33,22.02,memcpy/memset
+memop,[CUDA memset],392584,0.393,300,0.17,memcpy/memset
+api,cudaDeviceSynchronize,16484895535,16484.896,324,,
+api,cudaLaunchKernel,9555796479,9555.796,1626748,,
+api,cudaFree,687780328,687.780,130,,
+api,cudaMalloc,248029109,248.029,132,,
+api,cudaMemcpy2D,237857638,237.858,616,,
+api,cudaMemcpy,50153586,50.154,26,,
+api,cuLibraryLoadData,18865879,18.866,4,,
+api,cuModuleLoadData,2983339,2.983,6,,
+api,cuModuleUnload,1637936,1.638,6,,
+api,cuLaunchKernel,1579648,1.580,306,,
+api,cuMemFree_v2,1379824,1.380,7,,
+api,cuMemAlloc_v2,1379204,1.379,7,,
+api,cuKernelGetFunction,1327416,1.327,300,,
+api,cuMemcpyHtoD_v2,1275534,1.276,7,,
+api,cudaStreamGetCaptureInfo_v2_v11030,1118443,1.118,3300,,
+api,cudaMemsetAsync,1084878,1.085,300,,
+api,cudaEventRecord,622835,0.623,600,,
+api,cuGetProcAddress_v2,147582,0.148,810,,
+api,cuMemGetInfo_v2,101243,0.101,6,,
+api,cudaEventCreateWithFlags,11218,0.011,18,,
+api,cuInit,8982,0.009,4,,
+api,cudaEventQuery,6852,0.007,2,,
+api,cuLibraryGetKernel,4599,0.005,6,,
+api,cuCtxSetCurrent,3060,0.003,6,,
+api,cuModuleGetLoadingMode,2661,0.003,3,,
+category,GEMM,9464753218,9464.753,,,
+category,NMF elementwise,4617291230,4617.291,,,
+category,DTW,11046452464,11046.452,,,
+category,distance/znorm,564279958,564.280,,,
+category,STFT,6731575,6.732,,,
+category,other kernels,417217,0.417,,,
+category,memcpy/memset,227404073,227.404,,,
+category,GPU idle (est.),6943288803,6943.289,,,
+wall,cuda_active_span,32870618538,32870.619,,,

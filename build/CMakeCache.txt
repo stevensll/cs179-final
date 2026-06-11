@@ -444,6 +444,9 @@ PKG_CONFIG_ARGN:STRING=
 //pkg-config executable
 PKG_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/pkg-config
 
+//semicolon-separated SD_* definitions for config variants
+SD_DEFS:STRING=
+
 //Value Computed by CMake
 cs179_final_BINARY_DIR:STATIC=/home/slei3/cs179-final/build
 

@@ -1,0 +1,104 @@
+sample_id,query_file,expected_file,query_song,expected_song,t_original_s,t_query_s,n_repetitions,sample_type,interpolation,comments
+S001,T001.wav,T002.wav,OC - Time's Up,Les Demerle - A Day in the Life,0,0,19,riff,no,starts counted (sample ABCD looped ABCBCBCD)
+S002,T004.wav,T003.wav,Lil Wayne - Dr. Carter,David Axelrod - Holy Thursday,0,0,4,riff,no,intro
+S003,T004.wav,T003.wav,Lil Wayne - Dr. Carter,David Axelrod - Holy Thursday,34,53,3,riff,no,refrain with horns
+S004,T006.wav,T005.wav,Common - In My Own World (Check the Method),Clyde McPhatter - Mixed Up Cup,0,37,60,beat,no,
+S005,T008.wav,T007.wav,The Beatnuts - Let Off a Couple,Monty Alexander - Love and Happiness,53,0,10,riff,no,(very clean: same pitch and only layer)
+S006,T009.wav,T010.wav,Beastie Boys - Rhymin & Stealin',Led Zeppelin - When The Levee Breaks,0,1,37,beat,no,probably samples both bars (with two decks?)
+S007,T012.wav,T011.wav,Blackstreet - No Diggity,Bill Withers - Grandma's Hands,1,0,85,riff,no,(sample a bit gated in the end)
+S008,T013.wav,T014.wav,Jay-Z - Roc Boys (and the Winner is),Menahan Street Band - Make the Road by Walking,74,5,10,riff,maybe,beginning of riff counted (rest 'chopped')
+S010,T017.wav,T018.wav,House of Pain - Jump Around,Bob & Earl - Harlem Shuffle,0,0,1,riff,no,
+S012,T020.wav,T021.wav,Will Smith - Miami,The Whispers - And the Beat Goes On,0,0,38,riff,maybe,time sampled unclear (0:00 or 2:25?)
+S013,T022.wav,T023.wav,Asheru ft. Talib Kweli - Mood Swing,Duke Ellington and John Coltrane - In a Sentimental Mood,1,10,51,riff,maybe,piano
+S014,T024.wav,T025.wav,Wu-Tang Clan - C.R.E.A.M.,The Charmels - As Long as I've Got You,0,21,37,riff,no,
+S015,T026.wav,T027.wav,Beastie Boys - Rock Hard,AC/DC - Back in Black,5,12,38,riff,no,
+S016,T028.wav,T029.wav,Wu-Tang Clan - Tearz,Wendy Rene - After Laughter (Comes Tears),0,37,50,riff,no,
+S017,T030.wav,T031.wav,Non Phixion - Rock Stars,Bar-Kays - In the hole,8,10,43,riff,no,first half of loop
+S018,T032.wav,T033.wav,A Tribe Called Quest ft. Leaders of the New School & Kid Hood - Scenario (Remix),The Emotions - Blind Alley,1,18,217,beat,probably not,(samples 2nd measure hence short and no melody)
+S019,T034.wav,T035.wav,Pete Rock & C.L. Smooth - Straighten it Out,Ernie Hines - Our Generation,40,10,48,riff,no,(vocals)
+S020,T036.wav,T033.wav,Big Daddy Kane - Ain't No Half-Steppin',The Emotions - Blind Alley,0,2,33,riff,no,
+S021,T037.wav,T038.wav,De La Soul - Eye Know,The Mad Lads - Make This Young Lady Mine,0,0,50,riff,no,the guitar bar
+S022,T037.wav,T043.wav,De La Soul - Eye Know,Otis Redding - (Sittin' On) the Dock of the Bay,141,26,22,riff,maybe,
+S024,T041.wav,T042.wav,Killah Priest ft. Hell Razah and Tekitha - One Step,William Bell - I Forgot to Be Your Lover,0,4,40,riff,no,the guitar bar
+S025,T044.wav,T045.wav,Wu-Tang Clan - Protect Ya Neck,The J.B.'s - The Grunt,0,39,67,riff,no,very soft and hard to count
+S027,T048.wav,T049.wav,De La Soul - Change in Speak,Cymande - Bra,0,9,25,riff,no,
+S028,T048.wav,T050.wav,De La Soul - Change in Speak,The Mad Lads - No Strings Attached,0,0,19,riff,no,half samples not counted (second halves)
+S029,T051.wav,T052.wav,Nas - Memory Lane (Sittin' in Da Park),Lee Dorsey - Get Out of My Life Woman,0,10,85,beat,no,only the measures with single BD counted
+S030,T039.wav,T052.wav,Biz Markie - Just a Friend,Lee Dorsey - Get Out of My Life Woman,0,13,76,beat,no,
+S031,T037.wav,T052.wav,De La Soul - Eye Know,Lee Dorsey - Get Out of My Life Woman,0,4,110,beat,maybe,BD filtered out or replay
+S032,T053.wav,T052.wav,Fat Joe - Flow Joe,Lee Dorsey - Get Out of My Life Woman,1,20,147,beat,maybe,HH filtered out or replay
+S033,T054.wav,T045.wav,Public Enemy - Rebel Without a Pause,The J.B.'s - The Grunt,0,12,92,One note,no,
+S035,T057.wav,T056.wav,Jurassic 5 - Quality Control,Blowfly - Outro,3,6,44,riff,no,
+S036,T059.wav,T058.wav,Dr. Dre ft. Snoop Dogg - The Next Episode,David McCallum - The Edge,5,10,26,riff,maybe,Short sample � intro not counted
+S037,T061.wav,T060.wav,Common - The Light,Bobby Caldwell - Open Your Eyes,63,63,3,riff,no,vocals only
+S038,T063.wav,T062.wav,Eminem - Stan,Dido - Thank You,35,1,5,riff,no,refrain w/ vocals (long)
+S039,T065.wav,T064.wav,Ghostface Killah & RZA - Nutmeg,Eddie Holman - It's Over,25,22,157,riff,no,the flute verse
+S040,T067.wav,T066.wav,M.O.P. - Cold as Ice,Foreigner - Cold as Ice,7,18,34,riff,no,both instr/vocal instr parts chopped?
+S041,T069.wav,T068.wav,Shyne & Barrington Levy - Bad Boyz,Grace Jones - Nightclubbing,6,13,23,riff,maybe,nice and long (11 seconds)
+S042,T071.wav,T070.wav,Jay-Z & UKG - Big Pimpin',Hossam Ramzy - Khusara Khusara,0,0,38,riff,no,
+S043,T073.wav,T072.wav,Prodigy - Keep it Thoro,Jack Mayborn - Music People,0,5,55,riff,no,piano part
+S044,T075.wav,T074.wav,Capone N' Noreaga - Invincible,Jimmie & Vella Cameron - Hey Boy Over There,7,8,79,riff,no,Short alternates full/half sample
+S045,T077.wav,T076.wav,Black Rob - Whoa!,Raymond Lefevre & His Orchestra - The Days of Pearly Spencer,32,0,143,riff,no,Only 8 note string riff counted
+S046,T079.wav,T078.wav,M.O.P. - Ante Up,Sam & Dave - Soul Sister Brown Sugar,4,2,151,One note,no,Less than one second
+S047,T081.wav,T080.wav,Ghostface Killah & Raekwon - Apollo Kids,Solomon Burke - Cool Breeze,3,20,15,riff,no,Only repetitions of string riff counted
+S048,T048.wav,T082.wav,De La Soul - Change in Speak,The Monkeys - Mary Mary,2,0,68,beat,no,
+S049,T054.wav,T083.wav,Public Enemy - Rebel Without a Pause,James Brown - Funky Drummer,321,12,80,beat,maybe,
+S050,T084.wav,T085.wav,Jay-Z ft. Alicia Keys - Empire State of Mind,Isaac Hayes - The Breakthrough,1,0,45,beat,probably,
+S051,T086.wav,T116.wav,NWA - Straight outta Compton,The Winstons - Amen Brother,88,20,80,beat,no,
+S052,T086.wav,T088.wav,NWA - Straight outta Compton,Funkadelic - You'll like it too,1,179,3,beat,no,
+S054,T091.wav,T090.wav,Nice & Smooth - Funky For You,The Honey Drippers - Impeach The President,0,3,91,beat,no,
+S055,T092.wav,T090.wav,LL Cool J - Around the Way Girl,The Honey Drippers - Impeach The President,0,0,101,beat,no,
+S056,T093.wav,T094.wav,Kris Kross - Jump,Jackson 5 - I want you back,5,0,60,riff,no,
+S057,T093.wav,T090.wav,Kris Kross - Jump,The Honey Drippers - Impeach The President,0,0,150,beat,no,half of the samples used in S054 and S55
+S058,T093.wav,T095.wav,Kris Kross - Jump,Ohio Players - Funky Worm,138,0,40,riff,no,
+S060,T097.wav,T098.wav,Naughty by Nature - Hip Hop Hurray,Five Stairsteps - Don't Change Your Love,0,8,204,beat,no,pretty short but ok
+S061,T099.wav,T098.wav,A Tribe Called Quest - Jazz (We've Got),Five Stairsteps - Don't Change Your Love,0,11,150,beat,no,Pretty short only full cycles counted
+S062,T100.wav,T098.wav,Ice Cube - A Bird in the Hand,Five Stairsteps - Don't Change Your Love,0,5,100,beat,no,pretty short but ok
+S063,T102.wav,T101.wav,Cormega - American Beauty,Southside Movement - I been watchin' you,1,0,24,riff,no,
+S064,T103.wav,T104.wav,The Avalanches - Since I left you,Lamont Dozier - Take off your make up,1,15,96,beat,no,
+S067,T109.wav,T108.wav,DJ Qbert - Eight,Gary Numan - Films,6,54,114,beat,no,
+S068,T110.wav,T111.wav,Ghostface Killah & RZA - The Grain,Rufus Thomas - Do the Funky Penguin,0,15,55,riff,no,
+S069,T110.wav,T112.wav,Ghostface Killah & RZA - The Grain,Rufus Thomas - The Breakdown (part 2),14,0,1,riff,no,
+S071,T115.wav,T116.wav,Salt-N-pepa - I desire,The Winstons - Amen Brother,88,7,82,beat,no,
+S072,T115.wav,T117.wav,Salt-N-pepa - I desire,7th Wonder - Daisy Lady,1,60,7,riff,no,
+S073,T118.wav,T119.wav,Kanye West ft. Nas - Really Doe We Major,Orange Krush - Action,5,0,139,beat,no,
+S078,T144.wav,T145.wav,Beastie Boys - Time to get Ill,Barry White - I'm gonna love you just a little more baby,12,39,2,riff,no,
+S079,T146.wav,T145.wav,De La Soul - De la Orgee,Barry White - I'm gonna love you just a little more baby,1,0,22,beat,no,
+S080,T147.wav,T148.wav,Ras Kass - Rasassination,Johnny Pate - Shaft in Africa,18,5,24,riff,no,
+S081,T149.wav,T148.wav,Jay-Z - Show me what you got,Johnny Pate - Shaft in Africa,18,13,15,riff,no,end of loop doubled (not counted)
+S082,T150.wav,T151.wav,Cypress Hill - Real Estate,All The People - Cramp Your Style,6,114,7,riff,no,
+S083,T152.wav,T145.wav,Nas - One Mic,Barry White - I'm gonna love you just a little more baby,3,56,28,beat,no,
+S084,T153.wav,T154.wav,Public Enemy - 911 is a Joke,Sound Experience - Devil with the bust,18,0,54,riff,no,LF only
+S086,T157.wav,T154.wav,Geto Boys - Fuck a War,Sound Experience - Devil with the bust,1,1,9,riff,no,intro
+S089,T157.wav,T160.wav,Geto Boys - Fuck a War,Bobby Byrd - I Know You Got Soul,0,64,8,riff,no,
+S091,T163.wav,T162.wav,Wu-Tang Clan - Wu-Tang Clan ain't nuthin ta F' wit,Joe Tex - Papa Was Too,0,17,3,beat,probably,HF only and soft
+S092,T164.wav,T162.wav,EPMD - Jane,Joe Tex - Papa Was Too,8,7,53,riff,no,
+S094,T166.wav,T167.wav,Nikki D - Lettin' Off Steam,The Politicians - Free Your Mind,6,15,43,riff,no,Bass + synth
+S098,T172.wav,T173.wav,3rd Bass - Oval Office,Joe Quarterman & Free Soul - I'm gonna get you,108,5,71,riff,no,
+S101,T176.wav,T177.wav,Beastie Boys - Egg man,Curtis Mayfield - Superfly,0,0,27,riff,no,
+S103,T179.wav,T180.wav,Beastie Boys - Brass Monkey,Wild Sugar - Bring it Here,1,1,12,riff,no,
+S104,T181.wav,T182.wav,The Notorious B.I.G. - Respect,KC & The Sunshine Band - I Get Lifted,0,0,99,riff,no,
+S106,T184.wav,T185.wav,Nas - Get Down,The Blackbyrds - Rock Creek Park,0,135,8,riff,no,
+S107,T184.wav,T083.wav,Nas - Get Down,James Brown - Funky Drummer,321,137,7,beat,no,
+S109,T187.wav,T160.wav,Erik B. & Rakim - I Know You Got Soul,Bobby Byrd - I Know You Got Soul,0,9,77,riff,no,might be 39
+S112,T187.wav,T088.wav,Erik B. & Rakim - I Know You Got Soul,Funkadelic - You'll like it too,1,0,21,beat,no,
+S113,T189.wav,T083.wav,NWA - Fuck the Police,James Brown - Funky Drummer,321,137,4,beat,no,might be 2
+S114,T190.wav,T083.wav,Erik B. & Rakim - Lyrics of Fury,James Brown - Funky Drummer,321,0,102,beat,no,
+S115,T191.wav,T083.wav,LL Cool J - Mama said knock you out,James Brown - Funky Drummer,321,11,112,beat,no,
+S116,T192.wav,T193.wav,Public Enemy - Welcome to the Terrordome,Dyke & The Blazers - Let a woman be a woman let a man be a man,106,5,75,beat,no,Beginnings counted
+S120,T184.wav,T199.wav,Nas - Get Down,James Brown - The Boss,5,2,71,riff,no,
+S121,T065.wav,T064.wav,Ghostface Killah & RZA - Nutmeg,Eddie Holman - It's Over,2,0,12,riff,no,the intro/refrain riff
+S122,T073.wav,T072.wav,Prodigy - Keep it Thoro,Jack Mayborn - Music People,4,32,5,riff,no,brass part
+S123,T063.wav,T062.wav,Eminem - Stan,Dido - Thank You,59,49,44,riff,no,verse (very soft)
+S124,T051.wav,T052.wav,Nas - Memory Lane (Sittin' in Da Park),Lee Dorsey - Get Out of My Life Woman,1,13,80,beat,no,only the measures with double BD counted
+S125,T041.wav,T042.wav,Killah Priest ft. Hell Razah and Tekitha - One Step,William Bell - I Forgot to Be Your Lover,7,12,16,riff,no,the guitar + strings bar
+S126,T037.wav,T038.wav,De La Soul - Eye Know,The Mad Lads - Make This Young Lady Mine,4,52,10,riff,no,the guitar + brass bar
+S127,T030.wav,T031.wav,Non Phixion - Rock Stars,Bar-Kays - In the hole,46,13,43,riff,no,end of loop
+S128,T028.wav,T029.wav,Wu-Tang Clan - Tearz,Wendy Rene - After Laughter (Comes Tears),5,27,4,riff,no,10 sec refrain
+S129,T022.wav,T023.wav,Asheru ft. Talib Kweli - Mood Swing,Duke Ellington and John Coltrane - In a Sentimental Mood,11,84,2,riff,maybe,saxophone
+S130,T013.wav,T014.wav,Jay-Z - Roc Boys (and the Winner is),Menahan Street Band - Make the Road by Walking,68,0,1,riff,no,intro not interpolated
+S131,T004.wav,T003.wav,Lil Wayne - Dr. Carter,David Axelrod - Holy Thursday,23,20,9,riff,no,repeated beat (of which 3 included in S2)
+S134,T166.wav,T167.wav,Nikki D - Lettin' Off Steam,The Politicians - Free Your Mind,2,25,14,riff,no,Just bass
+S135,T184.wav,T199.wav,Nas - Get Down,James Brown - The Boss,14,58,3,riff,no,brass riff
+S136,T184.wav,T199.wav,Nas - Get Down,James Brown - The Boss,66,0,2,riff,no,brass crescendo
+S137,T172.wav,T173.wav,3rd Bass - Oval Office,Joe Quarterman & Free Soul - I'm gonna get you,1,44,14,riff,no,
