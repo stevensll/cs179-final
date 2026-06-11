@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/slei3/cs179-final/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

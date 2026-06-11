@@ -1,0 +1,4 @@
+/home/slei3/cs179-final/build/CMakeFiles/cpu_demo.dir
+/home/slei3/cs179-final/build/CMakeFiles/gpu_detect.dir
+/home/slei3/cs179-final/build/CMakeFiles/edit_cache.dir
+/home/slei3/cs179-final/build/CMakeFiles/rebuild_cache.dir
