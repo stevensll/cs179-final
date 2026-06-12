@@ -11,13 +11,13 @@ namespace sd {
 /* Tunable knobs are #ifndef-wrapped so the config matrix (tools/sweep_configs)
  * can stamp out build variants via -DSD_*=... while keeping everything
  * constexpr. Defaults = the gated production configuration. */
-constexpr int   SAMPLE_RATE   = 22050;  /* analysis rate; inputs decimated 2:1 */
-constexpr int   FFT_SIZE      = 4096;
+constexpr int SAMPLE_RATE = 22050; /* analysis rate; inputs decimated 2:1 */
+constexpr int FFT_SIZE = 4096;
 #ifndef SD_HOP
 #define SD_HOP 1024
 #endif
-constexpr int   HOP           = SD_HOP;
-constexpr int   N_BINS        = FFT_SIZE / 2 + 1;   /* 2049 (STFT output) */
+constexpr int HOP = SD_HOP;
+constexpr int N_BINS = FFT_SIZE / 2 + 1; /* 2049 (STFT output) */
 
 /* Log-frequency front end: the magnitude spectrogram is pooled through a
  * triangular log-spaced filterbank (BINS_PER_ST bins per semitone from
@@ -32,10 +32,10 @@ constexpr int   N_BINS        = FFT_SIZE / 2 + 1;   /* 2049 (STFT output) */
 #ifndef SD_BINS_PER_ST
 #define SD_BINS_PER_ST 4
 #endif
-constexpr int   MEL_BINS      = SD_MEL_BINS;
-constexpr int   BINS_PER_ST   = SD_BINS_PER_ST;
-constexpr float MEL_FMIN      = 55.f;
-constexpr int   ANALYSIS_BINS = MEL_BINS > 0 ? MEL_BINS : N_BINS;
+constexpr int MEL_BINS = SD_MEL_BINS;
+constexpr int BINS_PER_ST = SD_BINS_PER_ST;
+constexpr float MEL_FMIN = 55.f;
+constexpr int ANALYSIS_BINS = MEL_BINS > 0 ? MEL_BINS : N_BINS;
 
 /* Paper uses K=10 templates for a ~4.5 s sample. Our "sample NMF" block models
  * the FULL candidate song (the sample location is unknown), so the rank scales
@@ -50,10 +50,10 @@ constexpr int   ANALYSIS_BINS = MEL_BINS > 0 ? MEL_BINS : N_BINS;
 #ifndef SD_RANK_L
 #define SD_RANK_L 20
 #endif
-constexpr int   RANK_K        = SD_RANK_K;  /* candidate ("sample") templates */
-constexpr int   RANK_L        = SD_RANK_L;  /* free mixture templates in PFNMF */
-constexpr int   DEFAULT_ITERS = 100;    /* NMF multiplicative-update iterations */
-constexpr float NMF_EPS       = 1e-8f;
+constexpr int RANK_K = SD_RANK_K;  /* candidate ("sample") templates */
+constexpr int RANK_L = SD_RANK_L;  /* free mixture templates in PFNMF */
+constexpr int DEFAULT_ITERS = 100; /* NMF multiplicative-update iterations */
+constexpr float NMF_EPS = 1e-8f;
 
 /* Two-stage PFNMF shift screening — DISABLED (SCREEN_KEEP = N_SHIFTS).
  * Tried and REVERTED twice (15/8 and 25/16): interim-score screening degraded
@@ -62,7 +62,7 @@ constexpr float NMF_EPS       = 1e-8f;
  * corrupt cross-candidate comparability. Machinery kept for re-evaluation
  * with a future classifier-based scorer. */
 constexpr int SCREEN_ITERS = 15;
-constexpr int SCREEN_KEEP  = 9999;  /* >= N_SHIFTS = disabled */
+constexpr int SCREEN_KEEP = 9999; /* >= N_SHIFTS = disabled */
 
 /* Correlation regularizer at the paper's H/max(H) scale: activations are first
  * normalized by their global max (paper 3.2.1), then column z-normalization
@@ -82,13 +82,17 @@ constexpr float Z_REG = 0.01f;
 #ifndef SD_SHIFT_STEP4
 #define SD_SHIFT_STEP4 1
 #endif
-constexpr int   N_SHIFTS = 40 / SD_SHIFT_STEP4 + 1;  /* -5 .. +5 st inclusive */
+constexpr int N_SHIFTS = 40 / SD_SHIFT_STEP4 + 1; /* -5 .. +5 st inclusive */
 constexpr float SHIFT_MIN = -5.f;
 constexpr float SHIFT_STEP = 0.25f * SD_SHIFT_STEP4;
 #ifdef __CUDACC__
-__host__ __device__
+#define SD_HOST_DEVICE __host__ __device__
+#else
+#define SD_HOST_DEVICE
 #endif
-constexpr float pitch_shift(int p) { return SHIFT_MIN + p * SHIFT_STEP; }
+SD_HOST_DEVICE constexpr float pitch_shift(int p) {
+    return SHIFT_MIN + p * SHIFT_STEP;
+}
 
 /* Deviation from the paper (we have no ground-truth sample snippet): templates
  * come from the FULL candidate song; the window search over "which part of the
@@ -105,4 +109,4 @@ constexpr std::array<int, 1> WINDOW_SECONDS = {4};
 #endif
 constexpr int WINDOW_HOP_SECONDS = SD_WINDOW_HOP_SECONDS;
 
-}  /* namespace sd */
+} /* namespace sd */

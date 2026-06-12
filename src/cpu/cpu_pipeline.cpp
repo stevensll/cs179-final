@@ -17,9 +17,14 @@ void fft_radix2(std::vector<float>& re, std::vector<float>& im) {
     /* bit-reversal permutation */
     for (size_t i = 1, j = 0; i < n; i++) {
         size_t bit = n >> 1;
-        for (; j & bit; bit >>= 1) j ^= bit;
+        for (; j & bit; bit >>= 1) {
+            j ^= bit;
+        }
         j ^= bit;
-        if (i < j) { std::swap(re[i], re[j]); std::swap(im[i], im[j]); }
+        if (i < j) {
+            std::swap(re[i], re[j]);
+            std::swap(im[i], im[j]);
+        }
     }
     for (size_t len = 2; len <= n; len <<= 1) {
         float ang = -2.f * (float)M_PI / len;
@@ -30,8 +35,10 @@ void fft_radix2(std::vector<float>& re, std::vector<float>& im) {
                 size_t a = i + k, b = i + k + len / 2;
                 float tr = re[b] * cr - im[b] * ci;
                 float ti = re[b] * ci + im[b] * cr;
-                re[b] = re[a] - tr; im[b] = im[a] - ti;
-                re[a] += tr;        im[a] += ti;
+                re[b] = re[a] - tr;
+                im[b] = im[a] - ti;
+                re[a] += tr;
+                im[a] += ti;
                 float ncr = cr * wr - ci * wi;
                 ci = cr * wi + ci * wr;
                 cr = ncr;
@@ -47,9 +54,7 @@ void fft_radix2(std::vector<float>& re, std::vector<float>& im) {
 const std::vector<float>& log_filterbank() {
     static const std::vector<float> F = [] {
         std::vector<float> f((size_t)MEL_BINS * N_BINS, 0.f);
-        auto center = [](int b) {
-            return MEL_FMIN * exp2f((float)b / (12.f * BINS_PER_ST));
-        };
+        auto center = [](int b) { return MEL_FMIN * exp2f((float)b / (12.f * BINS_PER_ST)); };
         const float bin_hz = (float)SAMPLE_RATE / FFT_SIZE;
         for (int b = 0; b < MEL_BINS; b++) {
             const float lo = center(b - 1), mid = center(b), hi = center(b + 1);
@@ -59,16 +64,23 @@ const std::vector<float>& log_filterbank() {
             for (int k = k0; k <= k1; k++) {
                 float fhz = k * bin_hz;
                 float w = 0.f;
-                if (fhz > lo && fhz <= mid) w = (fhz - lo) / (mid - lo);
-                else if (fhz > mid && fhz < hi) w = (hi - fhz) / (hi - mid);
+                if (fhz > lo && fhz <= mid) {
+                    w = (fhz - lo) / (mid - lo);
+                } else if (fhz > mid && fhz < hi) {
+                    w = (hi - fhz) / (hi - mid);
+                }
                 f[(size_t)b * N_BINS + k] = w;
                 sum += w;
             }
             if (sum > 0.f) {
-                for (int k = k0; k <= k1; k++) f[(size_t)b * N_BINS + k] /= sum;
+                for (int k = k0; k <= k1; k++) {
+                    f[(size_t)b * N_BINS + k] /= sum;
+                }
             } else {
                 int k = (int)lrintf(mid / bin_hz);
-                if (k >= 0 && k < N_BINS) f[(size_t)b * N_BINS + k] = 1.f;
+                if (k >= 0 && k < N_BINS) {
+                    f[(size_t)b * N_BINS + k] = 1.f;
+                }
             }
         }
         return f;
@@ -86,39 +98,48 @@ const std::vector<float>& log_filterbank() {
 void gemm_nn(const Mat& A, const Mat& B, Mat& C) {
     assert(A.cols == B.rows && C.rows == A.rows && C.cols == B.cols);
     std::fill(C.v.begin(), C.v.end(), 0.f);
-    for (int i = 0; i < A.rows; i++)
+    for (int i = 0; i < A.rows; i++) {
         for (int k = 0; k < A.cols; k++) {
             const float a = A.at(i, k);
             const float* brow = &B.v[(size_t)k * B.cols];
             float* crow = &C.v[(size_t)i * C.cols];
-            for (int j = 0; j < B.cols; j++) crow[j] += a * brow[j];
+            for (int j = 0; j < B.cols; j++) {
+                crow[j] += a * brow[j];
+            }
         }
+    }
 }
 
 /* C(RxN) = A(MxR)^T * B(MxN) */
 void gemm_tn(const Mat& A, const Mat& B, Mat& C) {
     assert(A.rows == B.rows && C.rows == A.cols && C.cols == B.cols);
     std::fill(C.v.begin(), C.v.end(), 0.f);
-    for (int m = 0; m < A.rows; m++)
+    for (int m = 0; m < A.rows; m++) {
         for (int r = 0; r < A.cols; r++) {
             const float a = A.at(m, r);
             const float* brow = &B.v[(size_t)m * B.cols];
             float* crow = &C.v[(size_t)r * C.cols];
-            for (int j = 0; j < B.cols; j++) crow[j] += a * brow[j];
+            for (int j = 0; j < B.cols; j++) {
+                crow[j] += a * brow[j];
+            }
         }
+    }
 }
 
 /* C(MxR) = A(MxN) * B(RxN)^T */
 void gemm_nt(const Mat& A, const Mat& B, Mat& C) {
     assert(A.cols == B.cols && C.rows == A.rows && C.cols == B.rows);
-    for (int m = 0; m < A.rows; m++)
+    for (int m = 0; m < A.rows; m++) {
         for (int r = 0; r < B.rows; r++) {
             const float* arow = &A.v[(size_t)m * A.cols];
             const float* brow = &B.v[(size_t)r * B.cols];
             double acc = 0.0;
-            for (int j = 0; j < A.cols; j++) acc += (double)arow[j] * brow[j];
+            for (int j = 0; j < A.cols; j++) {
+                acc += (double)arow[j] * brow[j];
+            }
             C.at(m, r) = (float)acc;
         }
+    }
 }
 
 /* Scale each column of W to unit L2 norm; if H is non-null, fold the removed
@@ -128,11 +149,18 @@ void gemm_nt(const Mat& A, const Mat& B, Mat& C) {
 void normalize_columns(Mat& W, Mat* H) {
     for (int k = 0; k < W.cols; k++) {
         float sq = 0.f;
-        for (int m = 0; m < W.rows; m++) sq += W.at(m, k) * W.at(m, k);
+        for (int m = 0; m < W.rows; m++) {
+            sq += W.at(m, k) * W.at(m, k);
+        }
         float norm = sqrtf(sq) + 1e-12f;
-        for (int m = 0; m < W.rows; m++) W.at(m, k) /= norm;
-        if (H)
-            for (int j = 0; j < H->cols; j++) H->at(k, j) *= norm;
+        for (int m = 0; m < W.rows; m++) {
+            W.at(m, k) /= norm;
+        }
+        if (H) {
+            for (int j = 0; j < H->cols; j++) {
+                H->at(k, j) *= norm;
+            }
+        }
     }
 }
 
@@ -142,9 +170,13 @@ void normalize_columns(Mat& W, Mat* H) {
  * GPU strategy: one block per problem, shared-memory max reduction. */
 void max_normalize(Mat& H, int K) {
     float mx = 0.f;
-    for (size_t i = 0; i < (size_t)K * H.cols; i++) mx = std::max(mx, fabsf(H.v[i]));
+    for (size_t i = 0; i < (size_t)K * H.cols; i++) {
+        mx = std::max(mx, fabsf(H.v[i]));
+    }
     float inv = 1.f / (mx + 1e-20f);
-    for (float& x : H.v) x *= inv;
+    for (float& x : H.v) {
+        x *= inv;
+    }
 }
 
 /* Z-normalize the first K rows of each column so a plain dot of two z-columns
@@ -179,7 +211,9 @@ Mat znorm(const Mat& H, int K) {
             e = sqrtf(fix2) / (sqrtf(fix2) + sqrtf(free2) + 1e-12f);
         }
         float scale = e / (sqrtf(var) + Z_REG);
-        for (int k = 0; k < K; k++) Z.at(k, j) = (H.at(k, j) - mean) * scale;
+        for (int k = 0; k < K; k++) {
+            Z.at(k, j) = (H.at(k, j) - mean) * scale;
+        }
     }
     return Z;
 }
@@ -190,7 +224,7 @@ Mat znorm(const Mat& H, int K) {
  * GPU strategy: one thread per (problem, bin, template) gather. */
 void pitch_templates_into(const Mat& Wo, Mat& W, int p) {
     const int M = Wo.rows, K = Wo.cols;
-    for (int m = 0; m < M; m++)
+    for (int m = 0; m < M; m++) {
         for (int k = 0; k < K; k++) {
             float v;
             if (MEL_BINS > 0) {
@@ -201,19 +235,22 @@ void pitch_templates_into(const Mat& Wo, Mat& W, int p) {
                 float src = m / factor;
                 int lo = (int)src;
                 float frac = src - lo;
-                v = (lo + 1 < M)
-                        ? (1.f - frac) * Wo.at(lo, k) + frac * Wo.at(lo + 1, k)
-                        : 0.f;
+                v = (lo + 1 < M) ? (1.f - frac) * Wo.at(lo, k) + frac * Wo.at(lo + 1, k) : 0.f;
             }
             W.at(m, k) = v;
         }
+    }
     /* unit-norm the fixed columns only (no H to fold into; extreme shifts
      * otherwise shrink norms and bias the correlation distance) */
     for (int k = 0; k < K; k++) {
         float sq = 0.f;
-        for (int m = 0; m < M; m++) sq += W.at(m, k) * W.at(m, k);
+        for (int m = 0; m < M; m++) {
+            sq += W.at(m, k) * W.at(m, k);
+        }
         float norm = sqrtf(sq) + 1e-12f;
-        for (int m = 0; m < M; m++) W.at(m, k) /= norm;
+        for (int m = 0; m < M; m++) {
+            W.at(m, k) /= norm;
+        }
     }
 }
 
@@ -230,7 +267,10 @@ struct BandStats {
 BandStats dtw_band(const Mat& D, int i0, int T) {
     const int Ns = D.cols;
     std::vector<float> cprev(Ns), lprev(Ns), ccur(Ns), lcur(Ns);
-    for (int j = 0; j < Ns; j++) { ccur[j] = D.at(i0, j); lcur[j] = 1.f; }
+    for (int j = 0; j < Ns; j++) {
+        ccur[j] = D.at(i0, j);
+        lcur[j] = 1.f;
+    }
     for (int i = 1; i < T; i++) {
         std::swap(cprev, ccur);
         std::swap(lprev, lcur);
@@ -238,9 +278,15 @@ BandStats dtw_band(const Mat& D, int i0, int T) {
         ccur[0] = cprev[0] + drow[0];
         lcur[0] = (float)(i + 1);
         for (int j = 1; j < Ns; j++) {
-            float best = cprev[j - 1], len = lprev[j - 1];      /* diagonal */
-            if (cprev[j] < best) { best = cprev[j]; len = lprev[j]; }    /* up */
-            if (ccur[j - 1] < best) { best = ccur[j - 1]; len = lcur[j - 1]; } /* left */
+            float best = cprev[j - 1], len = lprev[j - 1]; /* diagonal */
+            if (cprev[j] < best) {
+                best = cprev[j];
+                len = lprev[j];
+            } /* up */
+            if (ccur[j - 1] < best) {
+                best = ccur[j - 1];
+                len = lcur[j - 1];
+            } /* left */
             ccur[j] = best + drow[j];
             lcur[j] = len + 1.f;
         }
@@ -250,25 +296,35 @@ BandStats dtw_band(const Mat& D, int i0, int T) {
     int nvalid = 0;
     for (int j = 0; j < Ns; j++) {
         float warp = lcur[j] / (float)T;
-        if (warp < 0.7f || warp > 1.5f) continue;
+        if (warp < 0.7f || warp > 1.5f) {
+            continue;
+        }
         float cost = ccur[j] / lcur[j];
-        if (cost < s.mn) { s.mn = cost; s.arg = j; }
+        if (cost < s.mn) {
+            s.mn = cost;
+            s.arg = j;
+        }
         mean_sum += cost;
         nvalid++;
     }
-    if (nvalid == 0) { s.mn = 1.f; s.mean = 1.f; }
-    else s.mean = mean_sum / nvalid;
+    if (nvalid == 0) {
+        s.mn = 1.f;
+        s.mean = 1.f;
+    } else {
+        s.mean = mean_sum / nvalid;
+    }
     return s;
 }
 
-}  /* namespace */
+} /* namespace */
 
 Mat stft_magnitude(const std::vector<float>& x) {
     const int frames = x.size() >= FFT_SIZE ? 1 + (int)((x.size() - FFT_SIZE) / HOP) : 0;
     Mat V(N_BINS, frames);
     std::vector<float> hann(FFT_SIZE);
-    for (int n = 0; n < FFT_SIZE; n++)
+    for (int n = 0; n < FFT_SIZE; n++) {
         hann[n] = 0.5f * (1.f - cosf(2.f * (float)M_PI * n / (FFT_SIZE - 1)));
+    }
 
     std::vector<float> re(FFT_SIZE), im(FFT_SIZE);
     for (int f = 0; f < frames; f++) {
@@ -277,22 +333,30 @@ Mat stft_magnitude(const std::vector<float>& x) {
             im[n] = 0.f;
         }
         fft_radix2(re, im);
-        for (int b = 0; b < N_BINS; b++)
+        for (int b = 0; b < N_BINS; b++) {
             V.at(b, f) = sqrtf(re[b] * re[b] + im[b] * im[b]);
+        }
     }
-    if (MEL_BINS <= 0) return V;
+    if (MEL_BINS <= 0) {
+        return V;
+    }
 
     /* log-frequency pooling Vm = F * V (the GPU does this as one GEMM) */
     const std::vector<float>& F = log_filterbank();
     Mat Vm(MEL_BINS, frames);
-    for (int b = 0; b < MEL_BINS; b++)
+    for (int b = 0; b < MEL_BINS; b++) {
         for (int k = 0; k < N_BINS; k++) {
             const float w = F[(size_t)b * N_BINS + k];
-            if (w == 0.f) continue;
+            if (w == 0.f) {
+                continue;
+            }
             const float* vrow = &V.v[(size_t)k * frames];
             float* orow = &Vm.v[(size_t)b * frames];
-            for (int f = 0; f < frames; f++) orow[f] += w * vrow[f];
+            for (int f = 0; f < frames; f++) {
+                orow[f] += w * vrow[f];
+            }
         }
+    }
     return Vm;
 }
 
@@ -307,26 +371,39 @@ void nmf(const Mat& V, Mat& W, Mat& H, int iters, int n_fixed) {
          * from the PRE-update W/H (simultaneous variant — the alternating
          * form's WH recompute was ~35% of GPU kernel time) */
         gemm_nn(W, H, Z);
-        for (size_t i = 0; i < Z.v.size(); i++) Z.v[i] = V.v[i] / (Z.v[i] + NMF_EPS);
+        for (size_t i = 0; i < Z.v.size(); i++) {
+            Z.v[i] = V.v[i] / (Z.v[i] + NMF_EPS);
+        }
         gemm_tn(W, Z, numH);
         if (n_fixed < R) {
             gemm_nt(Z, H, numW);
             std::fill(hrow.begin(), hrow.end(), 0.f);
-            for (int r = 0; r < R; r++)
-                for (int j = 0; j < N; j++) hrow[r] += H.at(r, j);
+            for (int r = 0; r < R; r++) {
+                for (int j = 0; j < N; j++) {
+                    hrow[r] += H.at(r, j);
+                }
+            }
         }
         std::fill(wcol.begin(), wcol.end(), 0.f);
-        for (int m = 0; m < M; m++)
-            for (int r = 0; r < R; r++) wcol[r] += W.at(m, r);
+        for (int m = 0; m < M; m++) {
+            for (int r = 0; r < R; r++) {
+                wcol[r] += W.at(m, r);
+            }
+        }
 
         for (int r = 0; r < R; r++) {
             const float inv = 1.f / (wcol[r] + NMF_EPS);
-            for (int j = 0; j < N; j++) H.at(r, j) *= numH.at(r, j) * inv;
+            for (int j = 0; j < N; j++) {
+                H.at(r, j) *= numH.at(r, j) * inv;
+            }
         }
-        if (n_fixed < R)
-            for (int m = 0; m < M; m++)
-                for (int r = n_fixed; r < R; r++)
+        if (n_fixed < R) {
+            for (int m = 0; m < M; m++) {
+                for (int r = n_fixed; r < R; r++) {
                     W.at(m, r) *= numW.at(m, r) / (hrow[r] + NMF_EPS);
+                }
+            }
+        }
     }
 }
 
@@ -340,13 +417,12 @@ CpuCandidateTemplates candidate_templates(const Mat& Vc, int iters) {
     seed_matrix(Ho, 43);
     nmf(Vc, ct.Wo, Ho, iters, 0);
     normalize_columns(ct.Wo, &Ho);
-    max_normalize(Ho, K);   /* paper 3.2.1 */
-    ct.Zo = znorm(Ho, K);   /* R == K -> e = 1 */
+    max_normalize(Ho, K); /* paper 3.2.1 */
+    ct.Zo = znorm(Ho, K); /* R == K -> e = 1 */
     return ct;
 }
 
-MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct,
-                          int iters, bool clip) {
+MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct, int iters, bool clip) {
     const int M = ANALYSIS_BINS, Ns = Vq.cols;
     const int K = RANK_K, R = RANK_K + RANK_L, P = N_SHIFTS, No = ct.No;
     const float fps = (float)SAMPLE_RATE / HOP;
@@ -372,12 +448,15 @@ MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct,
         /* D(i,j) = 1 - regularized Pearson r (GPU: distance_batched_kernel,
          * written diagonal-skewed for the wavefront; plain layout here) */
         Mat D(No, Ns);
-        for (int i = 0; i < No; i++)
+        for (int i = 0; i < No; i++) {
             for (int j = 0; j < Ns; j++) {
                 float r = 0.f;
-                for (int k = 0; k < K; k++) r += ct.Zo.at(k, i) * Zs.at(k, j);
+                for (int k = 0; k < K; k++) {
+                    r += ct.Zo.at(k, i) * Zs.at(k, j);
+                }
                 D.at(i, j) = 1.f - r;
             }
+        }
 
         for (int w = 0; w < nbands; w++) {
             BandStats s = dtw_band(D, w * hop, T);
@@ -396,13 +475,16 @@ MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct,
      * 2) Selection bias: the best hypothesis judged against the candidate's
      *    own hypothesis distribution (min/median over all (p,w)). */
     std::vector<float> s((size_t)P * nbands);
-    for (size_t i = 0; i < s.size(); i++)
+    for (size_t i = 0; i < s.size(); i++) {
         s[i] = clip ? rmin[i] : rmin[i] / (rmean[i] + 1e-12f);
+    }
 
     MatchInfo best;
     std::vector<float> col(P), sel((size_t)P * nbands);
     for (int w = 0; w < nbands; w++) {
-        for (int p = 0; p < P; p++) col[p] = s[(size_t)p * nbands + w];
+        for (int p = 0; p < P; p++) {
+            col[p] = s[(size_t)p * nbands + w];
+        }
         std::nth_element(col.begin(), col.begin() + P / 2, col.end());
         float med = col[P / 2];
         for (int p = 0; p < P; p++) {
@@ -424,7 +506,9 @@ MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct,
 void seed_matrix(Mat& m, unsigned seed) {
     std::mt19937 rng(seed);
     std::uniform_real_distribution<float> u(0.01f, 1.f);
-    for (float& x : m.v) x = u(rng);
+    for (float& x : m.v) {
+        x = u(rng);
+    }
 }
 
-}  /* namespace sd */
+} /* namespace sd */

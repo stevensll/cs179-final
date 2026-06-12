@@ -5,6 +5,9 @@
  * candidate window and query position. Candidates are distributed across all
  * visible GPUs (one worker thread per device, shared work queue). */
 
+#include <cuda_runtime.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -18,10 +21,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <unistd.h>
-
-#include <cuda_runtime.h>
 
 #include "../common/audio.hpp"
 #include "../common/params.hpp"
@@ -57,7 +56,7 @@ struct TcHeader {
     int64_t audio_mtime;
     int32_t No;
 };
-constexpr int32_t TCACHE_VERSION = 2;  /* v2: log-frequency front end fields */
+constexpr int32_t TCACHE_VERSION = 2; /* v2: log-frequency front end fields */
 
 int64_t mtime_of(const std::string& p) {
     return (int64_t)fs::last_write_time(p).time_since_epoch().count();
@@ -67,16 +66,15 @@ int64_t mtime_of(const std::string& p) {
  * endlessly invalidating each other's entries */
 fs::path tcache_path(const std::string& cand_path, const std::string& lib_dir) {
     return fs::path(lib_dir) / ".tcache" /
-           (fs::path(cand_path).filename().string() + "_b" +
-            std::to_string(sd::ANALYSIS_BINS) + "k" + std::to_string(sd::RANK_K) +
-            "h" + std::to_string(sd::HOP) + ".tc");
+           (fs::path(cand_path).filename().string() + "_b" + std::to_string(sd::ANALYSIS_BINS) +
+            "k" + std::to_string(sd::RANK_K) + "h" + std::to_string(sd::HOP) + ".tc");
 }
 
 bool tcache_header_ok(const TcHeader& h, const std::string& cand_path, int iters) {
     return std::memcmp(h.magic, "SDTC", 4) == 0 && h.version == TCACHE_VERSION &&
            h.fft == sd::FFT_SIZE && h.hop == sd::HOP && h.k == sd::RANK_K &&
-           h.bins == sd::ANALYSIS_BINS && h.bps == sd::BINS_PER_ST &&
-           h.iters == iters && h.audio_size == (uint64_t)fs::file_size(cand_path) &&
+           h.bins == sd::ANALYSIS_BINS && h.bps == sd::BINS_PER_ST && h.iters == iters &&
+           h.audio_size == (uint64_t)fs::file_size(cand_path) &&
            h.audio_mtime == mtime_of(cand_path) && h.No > 0;
 }
 
@@ -84,7 +82,9 @@ bool tcache_header_ok(const TcHeader& h, const std::string& cand_path, int iters
 bool tcache_probe(const std::string& cand_path, const std::string& lib_dir, int iters) {
     std::ifstream f(tcache_path(cand_path, lib_dir), std::ios::binary);
     TcHeader h{};
-    if (!f.read((char*)&h, sizeof h)) return false;
+    if (!f.read((char*)&h, sizeof h)) {
+        return false;
+    }
     return tcache_header_ok(h, cand_path, iters);
 }
 
@@ -92,12 +92,20 @@ bool tcache_load(const std::string& cand_path, const std::string& lib_dir, int i
                  sd::CandidateTemplates& ct) {
     std::ifstream f(tcache_path(cand_path, lib_dir), std::ios::binary);
     TcHeader h{};
-    if (!f.read((char*)&h, sizeof h)) return false;
-    if (!tcache_header_ok(h, cand_path, iters)) return false;
+    if (!f.read((char*)&h, sizeof h)) {
+        return false;
+    }
+    if (!tcache_header_ok(h, cand_path, iters)) {
+        return false;
+    }
     std::vector<float> wo((size_t)sd::ANALYSIS_BINS * sd::RANK_K);
     std::vector<float> zo((size_t)sd::RANK_K * h.No);
-    if (!f.read((char*)wo.data(), wo.size() * sizeof(float))) return false;
-    if (!f.read((char*)zo.data(), zo.size() * sizeof(float))) return false;
+    if (!f.read((char*)wo.data(), wo.size() * sizeof(float))) {
+        return false;
+    }
+    if (!f.read((char*)zo.data(), zo.size() * sizeof(float))) {
+        return false;
+    }
     ct.No = h.No;
     ct.Wo.alloc(wo.size());
     ct.Wo.to_device(wo.data(), wo.size());
@@ -132,35 +140,50 @@ void tcache_store(const std::string& cand_path, const std::string& lib_dir, int 
         f.write((const char*)&h, sizeof h);
         f.write((const char*)wo.data(), wo.size() * sizeof(float));
         f.write((const char*)zo.data(), zo.size() * sizeof(float));
-        if (!f.good()) { fs::remove(tmp, ec); return; }
+        if (!f.good()) {
+            fs::remove(tmp, ec);
+            return;
+        }
     }
-    fs::rename(tmp, path, ec);  /* atomic on same fs; loser of a race is fine */
-    if (ec) fs::remove(tmp, ec);
+    fs::rename(tmp, path, ec); /* atomic on same fs; loser of a race is fine */
+    if (ec) {
+        fs::remove(tmp, ec);
+    }
 }
 
-}  /* namespace */
+} /* namespace */
 
 int main(int argc, char** argv) {
     float max_seconds = 0.f;
     int iters = sd::DEFAULT_ITERS;
-    bool clip = false;  /* query is a human-trimmed segment that IS the sample */
+    bool clip = false; /* query is a human-trimmed segment that IS the sample */
     bool use_cache = true;
-    int gpus = 0;       /* 0 = all visible devices */
-    std::string features_path;  /* classifier feature-dump mode */
+    int gpus = 0;              /* 0 = all visible devices */
+    std::string features_path; /* classifier feature-dump mode */
     int argi = 1;
     while (argi < argc && argv[argi][0] == '-') {
-        if (!strcmp(argv[argi], "--max-seconds") && argi + 1 < argc) max_seconds = atof(argv[++argi]);
-        else if (!strcmp(argv[argi], "--iters") && argi + 1 < argc) iters = atoi(argv[++argi]);
-        else if (!strcmp(argv[argi], "--clip")) clip = true;
-        else if (!strcmp(argv[argi], "--no-cache")) use_cache = false;
-        else if (!strcmp(argv[argi], "--gpus") && argi + 1 < argc) gpus = atoi(argv[++argi]);
-        else if (!strcmp(argv[argi], "--features") && argi + 1 < argc) features_path = argv[++argi];
-        else { fprintf(stderr, "unknown flag %s\n", argv[argi]); return 1; }
+        if (strcmp(argv[argi], "--max-seconds") == 0 && argi + 1 < argc) {
+            max_seconds = atof(argv[++argi]);
+        } else if (strcmp(argv[argi], "--iters") == 0 && argi + 1 < argc) {
+            iters = atoi(argv[++argi]);
+        } else if (strcmp(argv[argi], "--clip") == 0) {
+            clip = true;
+        } else if (strcmp(argv[argi], "--no-cache") == 0) {
+            use_cache = false;
+        } else if (strcmp(argv[argi], "--gpus") == 0 && argi + 1 < argc) {
+            gpus = atoi(argv[++argi]);
+        } else if (strcmp(argv[argi], "--features") == 0 && argi + 1 < argc) {
+            features_path = argv[++argi];
+        } else {
+            fprintf(stderr, "unknown flag %s\n", argv[argi]);
+            return 1;
+        }
         argi++;
     }
     if (argc - argi != 2) {
         fprintf(stderr,
-                "usage: %s [--max-seconds S] [--iters I] [--clip] [--no-cache] [--gpus N] <query.wav> <library_dir>\n"
+                "usage: %s [--max-seconds S] [--iters I] [--clip] [--no-cache] [--gpus N] "
+                "<query.wav> <library_dir>\n"
                 "  --clip:     the query is a trimmed segment that IS the suspected sample\n"
                 "  --no-cache: skip the <library>/.tcache candidate-template cache\n"
                 "  --gpus:     limit worker devices (default: all visible GPUs)\n",
@@ -174,22 +197,24 @@ int main(int argc, char** argv) {
     auto t0 = clk::now();
 
     auto query = sd::load_preprocessed(query_path, max_seconds);
-    printf("query: %s (%zu samples)\n",
-           fs::path(query_path).filename().c_str(), query.size());
+    printf("query: %s (%zu samples)\n", fs::path(query_path).filename().c_str(), query.size());
 
     std::vector<std::string> cand_paths;
     for (const auto& entry : fs::directory_iterator(lib_dir)) {
-        if (entry.path().extension() != ".wav") continue;
-        if (fs::equivalent(entry.path(), fs::path(query_path))) continue;  /* skip self */
+        if (entry.path().extension() != ".wav") {
+            continue;
+        }
+        if (fs::equivalent(entry.path(), fs::path(query_path))) {
+            continue; /* skip self */
+        }
         cand_paths.push_back(entry.path().string());
     }
     /* longest-first: a long candidate dealt out last leaves one GPU idle at
      * the tail; deterministic (size, then name) so output order is stable */
-    std::sort(cand_paths.begin(), cand_paths.end(),
-              [](const std::string& a, const std::string& b) {
-                  auto sa = fs::file_size(a), sb = fs::file_size(b);
-                  return sa != sb ? sa > sb : a < b;
-              });
+    std::sort(cand_paths.begin(), cand_paths.end(), [](const std::string& a, const std::string& b) {
+        auto sa = fs::file_size(a), sb = fs::file_size(b);
+        return sa != sb ? sa > sb : a < b;
+    });
 
     /* ---- classifier feature-dump mode: single worker, one CSV ---- */
     if (!features_path.empty()) {
@@ -207,17 +232,19 @@ int main(int argc, char** argv) {
                 auto cand = sd::load_preprocessed(path, 0.f);
                 sd::GpuMat Vc = sd::gpu_stft(cand);
                 ct = sd::gpu_candidate_templates(Vc, iters);
-                if (use_cache) tcache_store(path, lib_dir, iters, ct);
+                if (use_cache) {
+                    tcache_store(path, lib_dir, iters, ct);
+                }
             }
             auto rows = sd::gpu_extract_features(Vq, ct, iters, clip, 32, ctx);
-            for (const auto& r : rows)
-                fout << qname << ',' << name << ',' << r.shift << ',' << r.band_start_s
-                     << ',' << r.query_start_s << ',' << r.heur_raw << ',' << r.heur_sel
-                     << ',' << r.n_endpoints << ',' << r.min_cost << ',' << r.avg_cost
-                     << ',' << r.std_cost << ',' << r.best_len << ',' << r.best_slope
-                     << ',' << r.best_dev << ',' << r.avg_slope << ',' << r.std_slope
-                     << ',' << r.avg_len << ',' << r.std_len << ',' << r.avg_dev
-                     << ',' << r.std_dev << '\n';
+            for (const auto& r : rows) {
+                fout << qname << ',' << name << ',' << r.shift << ',' << r.band_start_s << ','
+                     << r.query_start_s << ',' << r.heur_raw << ',' << r.heur_sel << ','
+                     << r.n_endpoints << ',' << r.min_cost << ',' << r.avg_cost << ',' << r.std_cost
+                     << ',' << r.best_len << ',' << r.best_slope << ',' << r.best_dev << ','
+                     << r.avg_slope << ',' << r.std_slope << ',' << r.avg_len << ',' << r.std_len
+                     << ',' << r.avg_dev << ',' << r.std_dev << '\n';
+            }
             printf("  %-28s %zu feature rows  [t=%.1fs]\n", name.c_str(), rows.size(),
                    secs_since(t0));
             fflush(stdout);
@@ -228,8 +255,12 @@ int main(int argc, char** argv) {
 
     int n_dev = 0;
     checkCuda(cudaGetDeviceCount(&n_dev));
-    if (gpus > 0 && gpus < n_dev) n_dev = gpus;
-    if ((int)cand_paths.size() < n_dev) n_dev = std::max(1, (int)cand_paths.size());
+    if (gpus > 0 && gpus < n_dev) {
+        n_dev = gpus;
+    }
+    if ((int)cand_paths.size() < n_dev) {
+        n_dev = std::max(1, (int)cand_paths.size());
+    }
 
     /* group size for cross-candidate PFNMF batching: bounded by (a) memory —
      * the NMF workspace holds one V-sized slab per (candidate x shift), so
@@ -237,9 +268,12 @@ int main(int argc, char** argv) {
      * and (b) fairness: never let one group exceed an even split across the
      * devices (a 5-candidate scan once ran 4-vs-1 and idled a GPU). */
     const int q_frames = query.size() >= (size_t)sd::FFT_SIZE
-                             ? 1 + (int)((query.size() - sd::FFT_SIZE) / sd::HOP) : 1;
-    const size_t per_cand = (size_t)sd::N_SHIFTS * sd::ANALYSIS_BINS * (size_t)q_frames * sizeof(float);
-    const int mem_group = (int)std::min<size_t>(6, std::max<size_t>(1, ((size_t)9 << 30) / per_cand));
+                             ? 1 + (int)((query.size() - sd::FFT_SIZE) / sd::HOP)
+                             : 1;
+    const size_t per_cand =
+        (size_t)sd::N_SHIFTS * sd::ANALYSIS_BINS * (size_t)q_frames * sizeof(float);
+    const int mem_group =
+        (int)std::min<size_t>(6, std::max<size_t>(1, ((size_t)9 << 30) / per_cand));
     const int fair_group = std::max(1, (int)((cand_paths.size() + n_dev - 1) / n_dev));
     const int group = std::min(mem_group, fair_group);
 
@@ -255,7 +289,9 @@ int main(int argc, char** argv) {
     const size_t n_cand = cand_paths.size();
     auto prefetch_audio = [&](size_t idx) {
         return std::async(std::launch::async, [&, idx]() -> std::vector<float> {
-            if (use_cache && tcache_probe(cand_paths[idx], lib_dir, iters)) return {};
+            if (use_cache && tcache_probe(cand_paths[idx], lib_dir, iters)) {
+                return {};
+            }
             return sd::load_preprocessed(cand_paths[idx], 0.f);
         });
     };
@@ -266,14 +302,15 @@ int main(int argc, char** argv) {
     };
     auto prefetch_group = [&](Group g) {
         std::vector<std::future<std::vector<float>>> futs;
-        for (size_t i = g.first; i < g.second && i < n_cand; i++)
+        for (size_t i = g.first; i < g.second && i < n_cand; i++) {
             futs.push_back(prefetch_audio(i));
+        }
         return futs;
     };
     auto worker = [&](int dev) {
         checkCuda(cudaSetDevice(dev));
         sd::GpuMat Vq = sd::gpu_stft(query);
-        sd::ScoreContext ctx;  /* persistent device scratch, grows to max size once */
+        sd::ScoreContext ctx; /* persistent device scratch, grows to max size once */
         /* claim ONE group at a time: pre-claiming the next group for prefetch
          * starves the other GPU when there are few groups (a 2-group scan ran
          * entirely on one device). The group's own decodes still prefetch in
@@ -288,41 +325,52 @@ int main(int argc, char** argv) {
                 std::vector<float> cand = curf[k].get();
                 from_cache[k] = use_cache && tcache_load(cand_paths[idx], lib_dir, iters, cts[k]);
                 if (!from_cache[k]) {
-                    if (cand.empty())  /* prefetcher trusted a cache that failed full load */
+                    if (cand.empty()) { /* prefetcher trusted a cache that failed full load */
                         cand = sd::load_preprocessed(cand_paths[idx], 0.f);
+                    }
                     sd::GpuMat Vc = sd::gpu_stft(cand);
                     cts[k] = sd::gpu_candidate_templates(Vc, iters);
-                    if (use_cache) tcache_store(cand_paths[idx], lib_dir, iters, cts[k]);
+                    if (use_cache) {
+                        tcache_store(cand_paths[idx], lib_dir, iters, cts[k]);
+                    }
                 }
             }
             std::vector<const sd::CandidateTemplates*> ptrs(gc);
-            for (size_t k = 0; k < gc; k++) ptrs[k] = &cts[k];
+            for (size_t k = 0; k < gc; k++) {
+                ptrs[k] = &cts[k];
+            }
             std::vector<sd::MatchInfo> ms = sd::gpu_score_candidates(Vq, ptrs, iters, clip, ctx);
 
             for (size_t k = 0; k < gc; k++) {
                 const size_t idx = cur.first + k;
                 const std::string name = fs::path(cand_paths[idx]).filename().string();
                 std::lock_guard<std::mutex> lock(print_mu);
-                printf("  %-28s score %.4f (shift %+.2f st, cand @%.0fs -> query @%.0fs)  [gpu%d%s t=%.1fs]\n",
-                       name.c_str(), ms[k].score, ms[k].shift, ms[k].cand_seconds,
-                       ms[k].query_seconds, dev, from_cache[k] ? " cached" : "",
-                       secs_since(t0));
+                printf(
+                    "  %-28s score %.4f (shift %+.2f st, cand @%.0fs -> query @%.0fs)  [gpu%d%s "
+                    "t=%.1fs]\n",
+                    name.c_str(), ms[k].score, ms[k].shift, ms[k].cand_seconds, ms[k].query_seconds,
+                    dev, from_cache[k] ? " cached" : "", secs_since(t0));
                 fflush(stdout);
                 results[idx] = {name, ms[k], dev};
             }
         }
     };
     std::vector<std::thread> threads;
-    for (int dev = 0; dev < n_dev; dev++) threads.emplace_back(worker, dev);
-    for (auto& t : threads) t.join();
+    for (int dev = 0; dev < n_dev; dev++) {
+        threads.emplace_back(worker, dev);
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
 
     std::sort(results.begin(), results.end(),
               [](const Result& a, const Result& b) { return a.m.score < b.m.score; });
     printf("\nranking (best match first):\n");
-    for (size_t i = 0; i < results.size(); i++)
-        printf("%zu. %-28s score %.4f (shift %+.2f st, cand @%.0fs -> query @%.0fs)\n",
-               i + 1, results[i].name.c_str(), results[i].m.score, results[i].m.shift,
+    for (size_t i = 0; i < results.size(); i++) {
+        printf("%zu. %-28s score %.4f (shift %+.2f st, cand @%.0fs -> query @%.0fs)\n", i + 1,
+               results[i].name.c_str(), results[i].m.score, results[i].m.shift,
                results[i].m.cand_seconds, results[i].m.query_seconds);
+    }
     printf("total %.1f s (%d gpu%s)\n", secs_since(t0), n_dev, n_dev > 1 ? "s" : "");
     return 0;
 }

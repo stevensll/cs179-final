@@ -2,7 +2,7 @@
 
 Updated 2026-06-11, end of the RF/classifier session. Everything substantive
 landed: production config locked (K=32 log-frequency), RF stage trained and
-evaluated (RESULTS.md), CUDA forest inference verified, CPU parity restored,
+evaluated (README "Results"), CUDA forest inference verified, CPU parity restored,
 profiling characterized (plots/PERF-CHARACTERIZATION.md). History: CLAUDE.md.
 
 ## Remaining (small, benign)

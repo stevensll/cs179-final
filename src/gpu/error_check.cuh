@@ -1,15 +1,17 @@
 #pragma once
 
-#include <cstdio>
-#include <cstdlib>
-
 #include <cuda_runtime.h>
 #include <cufft.h>
 
+#include <cstdio>
+#include <cstdlib>
+
 /* CUDA error check macro, exits on failure. Pattern from CS179 lab3
  * (ErrorCheck.cuh), via https://stackoverflow.com/a/14038590 */
-#define checkCuda(ans) { sd::gpu_assert((ans), __FILE__, __LINE__); }
-#define checkCufft(ans) { sd::cufft_assert((ans), __FILE__, __LINE__); }
+#define checkCuda(ans) \
+    { sd::gpu_assert((ans), __FILE__, __LINE__); }
+#define checkCufft(ans) \
+    { sd::cufft_assert((ans), __FILE__, __LINE__); }
 
 namespace sd {
 
@@ -27,4 +29,4 @@ inline void cufft_assert(cufftResult code, const char* file, int line) {
     }
 }
 
-}  /* namespace sd */
+} /* namespace sd */

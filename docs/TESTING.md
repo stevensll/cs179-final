@@ -3,7 +3,7 @@
 Scan the music directory for all songs; the query is excluded from the library
 automatically. Status as of 2026-06-11 (final build: log-frequency front end,
 K=32, 5-candidate library; heuristic ranking stage — the trained RF stage is
-evaluated on Sample100, see RESULTS.md).
+evaluated on Sample100, see README "Results").
 
 ## Real-world pairs (files verified correct by Steven)
 
@@ -32,7 +32,7 @@ evaluated on Sample100, see RESULTS.md).
 The failure mode of 2 is the one the paper's random-forest stage separates
 (harmonically sparse candidates act as universal melodic matchers): on the
 Sample100 benchmark the trained RF lifts hit@1 from 11.4% to 50.0%
-(RESULTS.md). The RF is not wired into the `music/` CLI ranking; these
+(README "Results"). The RF is not wired into the `music/` CLI ranking; these
 statuses are the heuristic stage.
 
 ## Verification tests (synthetic, ground truth known)

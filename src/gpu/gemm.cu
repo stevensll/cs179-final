@@ -1,8 +1,8 @@
 #include "gemm.cuh"
 
-#include <mutex>
-
 #include <cuda_runtime.h>
+
+#include <mutex>
 
 #include "error_check.cuh"
 
@@ -37,37 +37,29 @@ cublasHandle_t cublas_handle() {
  * Sgemm: the math-mode setting alone is advisory and the heuristic kept the
  * large NN gemms on fp32 SIMT kernels (profiled: plots/01_tf32_dtw). */
 
-static void gemm_ex(cublasOperation_t opA, cublasOperation_t opB,
-                    int m, int n, int k, const float* A, int lda, long long sA,
-                    const float* B, int ldb, long long sB,
+static void gemm_ex(cublasOperation_t opA, cublasOperation_t opB, int m, int n, int k,
+                    const float* A, int lda, long long sA, const float* B, int ldb, long long sB,
                     float* C, int ldc, long long sC, int P) {
     const float one = 1.f, zero = 0.f;
-    checkCublas(cublasGemmStridedBatchedEx(
-        cublas_handle(), opA, opB, m, n, k, &one,
-        A, CUDA_R_32F, lda, sA, B, CUDA_R_32F, ldb, sB, &zero,
-        C, CUDA_R_32F, ldc, sC, P,
-        CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    checkCublas(cublasGemmStridedBatchedEx(cublas_handle(), opA, opB, m, n, k, &one, A, CUDA_R_32F,
+                                           lda, sA, B, CUDA_R_32F, ldb, sB, &zero, C, CUDA_R_32F,
+                                           ldc, sC, P, CUBLAS_COMPUTE_32F_FAST_TF32,
+                                           CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 }
 
-void gemm_nn_batched(int M, int N, int K,
-                     const float* A, long long sA,
-                     const float* B, long long sB,
-                     float* C, long long sC, int P) {
+void gemm_nn_batched(int M, int N, int K, const float* A, long long sA, const float* B,
+                     long long sB, float* C, long long sC, int P) {
     gemm_ex(CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, B, N, sB, A, K, sA, C, N, sC, P);
 }
 
-void gemm_tn_batched(int M, int N, int K,
-                     const float* A, long long sA,
-                     const float* B, long long sB,
-                     float* C, long long sC, int P) {
+void gemm_tn_batched(int M, int N, int K, const float* A, long long sA, const float* B,
+                     long long sB, float* C, long long sC, int P) {
     gemm_ex(CUBLAS_OP_N, CUBLAS_OP_T, N, M, K, B, N, sB, A, M, sA, C, N, sC, P);
 }
 
-void gemm_nt_batched(int M, int N, int K,
-                     const float* A, long long sA,
-                     const float* B, long long sB,
-                     float* C, long long sC, int P) {
+void gemm_nt_batched(int M, int N, int K, const float* A, long long sA, const float* B,
+                     long long sB, float* C, long long sC, int P) {
     gemm_ex(CUBLAS_OP_T, CUBLAS_OP_N, N, M, K, B, K, sB, A, K, sA, C, N, sC, P);
 }
 
-}  /* namespace sd */
+} /* namespace sd */

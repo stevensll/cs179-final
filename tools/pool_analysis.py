@@ -24,6 +24,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scores", default="plots/rf/rerank_scores.csv")
     ap.add_argument("--draws", type=int, default=2000)
+    ap.add_argument("--plot", metavar="PNG",
+                    help="also write the 64-pool P/R curve figure")
     args = ap.parse_args()
 
     by_q = defaultdict(lambda: {"true": [], "neg": []})
@@ -78,7 +80,7 @@ def main():
     print(f"\n64-pool P/R over detection threshold "
           f"({len(queries)} queries, every query has a sample):")
     print(f"  {'thr':>6} {'P':>6} {'R':>6} {'F':>6}")
-    best_at_r50 = None
+    best_at_r50, curve = None, []
     for t in sorted({t for t, _ in tops}, reverse=True):
         tp = sum(1 for top, ok in tops if top >= t and ok)
         fp = sum(1 for top, ok in tops if top >= t and not ok)
@@ -86,6 +88,7 @@ def main():
         P = tp / max(1, tp + fp)
         R = tp / len(queries)
         F = 2 * P * R / max(1e-9, P + R)
+        curve.append((R, P, t))
         if R >= 0.5 and best_at_r50 is None:
             best_at_r50 = (t, P, R, F)
         print(f"  {t:6.3f} {100*P:6.1f} {100*R:6.1f} {100*F:6.1f}")
@@ -94,6 +97,31 @@ def main():
         print(f"\nat the paper's operating point (R >= 50%): thr {t:.3f} -> "
               f"P {100*P:.1f}%  R {100*R:.1f}%  F {100*F:.1f}%   "
               f"[paper: P 83.3 @ R 50.0]")
+
+    if args.plot:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(5.2, 3.6))
+        ax.step([r for r, _, _ in curve], [p for _, p, _ in curve],
+                where="post", color="#1f6fb4", lw=2,
+                label="ours, 64-candidate pools")
+        ax.plot(0.5, 0.833, "s", color="0.4", ms=7,
+                label="paper (10-candidate pools)")
+        if best_at_r50:
+            ax.plot(best_at_r50[2], best_at_r50[1], "o", color="#d95f02", ms=6,
+                    label=f"ours @ paper's recall (P={100*best_at_r50[1]:.0f}%)")
+        ax.set_xlabel("macro recall (detection threshold sweep)", fontsize=9)
+        ax.set_ylabel("macro precision", fontsize=9)
+        ax.set_xlim(0, 1.02)
+        ax.set_ylim(0, 1.05)
+        ax.grid(alpha=0.25)
+        ax.legend(fontsize=8, loc="lower left")
+        ax.set_title("Song-level precision/recall (out-of-fold RF scores)",
+                     fontsize=10)
+        fig.tight_layout()
+        fig.savefig(args.plot, dpi=160)
+        print(f"wrote {args.plot}")
 
 
 if __name__ == "__main__":

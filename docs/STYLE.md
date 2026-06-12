@@ -1,7 +1,20 @@
 # C++/CUDA Style Guide
 
-Conventions for all code in this repo, distilled from Steven's CS 179 lab style
-(lab3 source, lab4 operating notes). When in doubt, match what the labs did.
+**Base standard: the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html)**,
+enforced mechanically by the checked-in `.clang-format` (Google base +
+`InsertBraces`). Run `clang-format -i` on touched files. On top of Google:
+
+- **Braces on every control-flow body** — no brace-less or single-line
+  `if`/`for`/`while`, no multi-statement lines. Expand it out.
+- **No compact C idioms**: `strcmp(a, b) == 0`, never `!strcmp(a, b)`;
+  prefer one declaration per line where it aids reading.
+- Documented deviations from Google (deliberate): 4-space indent, 100-column
+  limit, `snake_case` function names (CS 179 lab convention), `/* ... */`
+  comments.
+
+The rest of this file holds the repo-specific conventions, distilled from
+Steven's CS 179 lab style (lab3 source, lab4 operating notes). When in doubt:
+Google style first, then match what the labs did.
 
 ## Naming
 
@@ -103,12 +116,15 @@ Conventions for all code in this repo, distilled from Steven's CS 179 lab style
 - Timing: `cudaEvent_t` pairs for GPU stages, `std::chrono::steady_clock` for CPU
   stages; report milliseconds.
 
-## TODO(steven) — open style items to fill in
+## Formerly-open items, resolved by adopting Google style (2026-06-11)
 
-- [ ] Line width (labs are loose; pick 80/100/none).
-- [ ] Include order convention (e.g. own header first, then std, then CUDA, then
-      project headers?).
-- [ ] `struct` vs `class` taste for plain data aggregates.
-- [ ] Preference on `int` vs `size_t`/`int64_t` for sizes and indices (overflow bit us
-      in lab4's scan — decide once).
-- [ ] Anything else from past lab feedback worth codifying.
+- Line width: **100** (`.clang-format` ColumnLimit).
+- Include order: own header first, then system/std, then project headers —
+  clang-format sorts and groups automatically (`IncludeIsMainSourceRegex`
+  makes `.cu` files claim their `.cuh` pair as own-header).
+- `struct` for passive data aggregates, `class` when there are invariants
+  (per Google) — matches existing usage (`Mat`, `MatchInfo`, `PathFeatures`
+  are structs; `DeviceBuffer` is a class).
+- Sizes/indices: `size_t` for memory sizes and offsets (cast once at the
+  arithmetic boundary, as the kernels do), `int` for small counts and loop
+  bounds that provably fit.

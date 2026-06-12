@@ -40,8 +40,8 @@ void nmf(const Mat& V, Mat& W, Mat& H, int iters, int n_fixed);
 /* Query-independent candidate-side product (mirrors gpu_candidate_templates):
  * unit-norm spectral templates Wo and z-normalized activations Zo. */
 struct CpuCandidateTemplates {
-    Mat Wo;  /* ANALYSIS_BINS x RANK_K */
-    Mat Zo;  /* RANK_K x No */
+    Mat Wo; /* ANALYSIS_BINS x RANK_K */
+    Mat Zo; /* RANK_K x No */
     int No = 0;
 };
 CpuCandidateTemplates candidate_templates(const Mat& Vc, int iters);
@@ -49,11 +49,10 @@ CpuCandidateTemplates candidate_templates(const Mat& Vc, int iters);
 /* Per-pair scoring (mirrors gpu_score_candidates for one candidate): PFNMF at
  * every pitch shift against the query, banded subsequence DTW over every
  * candidate window, pitch-selectivity + selection-bias calibration. */
-MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct,
-                          int iters, bool clip);
+MatchInfo score_candidate(const Mat& Vq, const CpuCandidateTemplates& ct, int iters, bool clip);
 
 /* Deterministic uniform(0.01, 1) init — same mt19937 stream as the GPU host
  * init (seeds 42/43 candidate, 100+p/200+p per PFNMF shift). */
 void seed_matrix(Mat& m, unsigned seed);
 
-}  /* namespace sd */
+} /* namespace sd */

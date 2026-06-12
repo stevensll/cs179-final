@@ -1,0 +1,18 @@
+# Google C++ style (see docs/STYLE.md), with documented repo deviations:
+# 4-space indent and 100-column limit (matches the existing CS179-lab-derived
+# codebase), short inline accessors allowed. InsertBraces enforces braces on
+# every control-flow body.
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -2
+DerivePointerAlignment: false
+PointerAlignment: Left
+InsertBraces: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+# treat .cu as a main source file so its .cuh pairs sort first (own-header-first)
+IncludeIsMainSourceRegex: '\.cu$'

@@ -12,4 +12,4 @@ struct MatchInfo {
     float query_seconds = 0.f; /* end of the best alignment in the query */
 };
 
-}  /* namespace sd */
+} /* namespace sd */

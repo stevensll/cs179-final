@@ -12,10 +12,14 @@ namespace {
 
 constexpr int BLOCK = 256;
 
-inline int grid_1d(size_t n) { return (int)((n + BLOCK - 1) / BLOCK); }
+inline int grid_1d(size_t n) {
+    return (int)((n + BLOCK - 1) / BLOCK);
+}
 
 /* Always check launches: launch errors are silent otherwise. */
-inline void post_launch() { checkCuda(cudaGetLastError()); }
+inline void post_launch() {
+    checkCuda(cudaGetLastError());
+}
 
 /* One thread per windowed output sample. Frames overlap 4x, so this is a
  * gather from x with a Hann weight computed inline (cheaper than staging a
@@ -64,11 +68,9 @@ __global__ void magnitude_kernel(const cufftComplex* c, int frames, float* V) {
 constexpr int FUSE_BM = 64, FUSE_BN = 64, FUSE_MAX_R = 60;
 constexpr int FUSE_TM = 4, FUSE_TN = 4;
 
-__global__ void fused_wh_ratio_kernel(const float* __restrict__ W,
-                                      const float* __restrict__ H,
-                                      const float* __restrict__ V,
-                                      float* __restrict__ Z,
-                                      int M, int N, int R) {
+__global__ void fused_wh_ratio_kernel(const float* __restrict__ W, const float* __restrict__ H,
+                                      const float* __restrict__ V, float* __restrict__ Z, int M,
+                                      int N, int R) {
     __shared__ float sW[FUSE_BM][FUSE_MAX_R + 1];
     __shared__ float sH[FUSE_MAX_R][FUSE_BN];
     const int b = blockIdx.z;
@@ -92,23 +94,33 @@ __global__ void fused_wh_ratio_kernel(const float* __restrict__ W,
     for (int k = 0; k < R; k++) {
         float wv[FUSE_TM], hv[FUSE_TN];
 #pragma unroll
-        for (int i = 0; i < FUSE_TM; i++) wv[i] = sW[threadIdx.y * FUSE_TM + i][k];
+        for (int i = 0; i < FUSE_TM; i++) {
+            wv[i] = sW[threadIdx.y * FUSE_TM + i][k];
+        }
 #pragma unroll
-        for (int j = 0; j < FUSE_TN; j++) hv[j] = sH[k][threadIdx.x * FUSE_TN + j];
+        for (int j = 0; j < FUSE_TN; j++) {
+            hv[j] = sH[k][threadIdx.x * FUSE_TN + j];
+        }
 #pragma unroll
         for (int i = 0; i < FUSE_TM; i++)
 #pragma unroll
-            for (int j = 0; j < FUSE_TN; j++) acc[i][j] += wv[i] * hv[j];
+            for (int j = 0; j < FUSE_TN; j++) {
+                acc[i][j] += wv[i] * hv[j];
+            }
     }
 
 #pragma unroll
     for (int i = 0; i < FUSE_TM; i++) {
         int m = m0 + threadIdx.y * FUSE_TM + i;
-        if (m >= M) continue;
+        if (m >= M) {
+            continue;
+        }
 #pragma unroll
         for (int j = 0; j < FUSE_TN; j++) {
             int n = n0 + threadIdx.x * FUSE_TN + j;
-            if (n >= N) continue;
+            if (n >= N) {
+                continue;
+            }
             size_t idx = (size_t)m * N + n;
             Zb[idx] = V[idx] / (acc[i][j] + NMF_EPS);
         }
@@ -122,14 +134,20 @@ __global__ void col_sum_batched_kernel(const float* W, int M, int R, float* out)
     int r = blockIdx.x, b = blockIdx.y;
     const float* Wb = W + (size_t)b * M * R;
     float acc = 0.f;
-    for (int m = threadIdx.x; m < M; m += blockDim.x) acc += Wb[(size_t)m * R + r];
+    for (int m = threadIdx.x; m < M; m += blockDim.x) {
+        acc += Wb[(size_t)m * R + r];
+    }
     sh[threadIdx.x] = acc;
     __syncthreads();
     for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (threadIdx.x < s) sh[threadIdx.x] += sh[threadIdx.x + s];
+        if (threadIdx.x < s) {
+            sh[threadIdx.x] += sh[threadIdx.x + s];
+        }
         __syncthreads();
     }
-    if (threadIdx.x == 0) out[(size_t)b * R + r] = sh[0];
+    if (threadIdx.x == 0) {
+        out[(size_t)b * R + r] = sh[0];
+    }
 }
 
 /* One block per (row r, problem b); same reduction shape, contiguous reads. */
@@ -138,37 +156,40 @@ __global__ void row_sum_batched_kernel(const float* H, int R, int N, float* out)
     int r = blockIdx.x, b = blockIdx.y;
     const float* Hb = H + (size_t)b * R * N;
     float acc = 0.f;
-    for (int j = threadIdx.x; j < N; j += blockDim.x) acc += Hb[(size_t)r * N + j];
+    for (int j = threadIdx.x; j < N; j += blockDim.x) {
+        acc += Hb[(size_t)r * N + j];
+    }
     sh[threadIdx.x] = acc;
     __syncthreads();
     for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (threadIdx.x < s) sh[threadIdx.x] += sh[threadIdx.x + s];
+        if (threadIdx.x < s) {
+            sh[threadIdx.x] += sh[threadIdx.x + s];
+        }
         __syncthreads();
     }
-    if (threadIdx.x == 0) out[(size_t)b * R + r] = sh[0];
+    if (threadIdx.x == 0) {
+        out[(size_t)b * R + r] = sh[0];
+    }
 }
 
 /* One block row (blockIdx.y) per (problem, H row): the divisor wcol[b*R+r] is
  * one scalar per block, rows are contiguous -> fully coalesced, no div/mod. */
-__global__ void update_h_batched_kernel(float* __restrict__ H,
-                                        const float* __restrict__ numH,
+__global__ void update_h_batched_kernel(float* __restrict__ H, const float* __restrict__ numH,
                                         const float* __restrict__ wcol, int N) {
-    size_t row = blockIdx.y;          /* row = b * R + r */
+    size_t row = blockIdx.y; /* row = b * R + r */
     float* h = H + row * N;
     const float* nh = numH + row * N;
     float inv = 1.f / (wcol[row] + NMF_EPS);
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < N;
-         i += blockDim.x * gridDim.x)
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x) {
         h[i] *= nh[i] * inv;
+    }
 }
 
 /* PFNMF freezing = skip columns r < n_fixed (the candidate's templates).
  * blockIdx.y selects the problem; W is small (M*R), so the r = i % R for the
  * freeze mask is not on a hot path. */
-__global__ void update_w_batched_kernel(float* __restrict__ W,
-                                        const float* __restrict__ numW,
-                                        const float* __restrict__ hrow,
-                                        int M, int R, int n_fixed) {
+__global__ void update_w_batched_kernel(float* __restrict__ W, const float* __restrict__ numW,
+                                        const float* __restrict__ hrow, int M, int R, int n_fixed) {
     size_t mr = (size_t)M * R;
     float* wb = W + blockIdx.y * mr;
     const float* nb = numW + blockIdx.y * mr;
@@ -176,8 +197,9 @@ __global__ void update_w_batched_kernel(float* __restrict__ W,
     for (size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x; i < mr;
          i += (size_t)blockDim.x * gridDim.x) {
         int r = (int)(i % R);
-        if (r >= n_fixed)
+        if (r >= n_fixed) {
             wb[i] *= nb[i] / (hb[r] + NMF_EPS);
+        }
     }
 }
 
@@ -188,8 +210,8 @@ __global__ void update_w_batched_kernel(float* __restrict__ W,
  *   EXACT integer translation by s*BINS_PER_ST bins (the 0.25 st grid maps to
  *   whole bins at 4 bins/st) — no interpolation loss at all;
  * - linear axis: Wp[m] = Wo[m / 2^(s/12)], linear interpolation. */
-__global__ void pitch_templates_batched_kernel(const float* Wo, float* W_all,
-                                               int M, int K, int R, int P) {
+__global__ void pitch_templates_batched_kernel(const float* Wo, float* W_all, int M, int K, int R,
+                                               int P) {
     size_t total = (size_t)P * M * K;
     for (size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x; i < total;
          i += (size_t)blockDim.x * gridDim.x) {
@@ -229,11 +251,15 @@ __global__ void normalize_fixed_columns_batched_kernel(float* W_all, int M, int 
     sh[threadIdx.x] = acc;
     __syncthreads();
     for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (threadIdx.x < s) sh[threadIdx.x] += sh[threadIdx.x + s];
+        if (threadIdx.x < s) {
+            sh[threadIdx.x] += sh[threadIdx.x + s];
+        }
         __syncthreads();
     }
     float norm = sqrtf(sh[0]) + 1e-12f;
-    for (int m = threadIdx.x; m < M; m += blockDim.x) Wb[(size_t)m * R + k] /= norm;
+    for (int m = threadIdx.x; m < M; m += blockDim.x) {
+        Wb[(size_t)m * R + k] /= norm;
+    }
 }
 
 /* P=1 candidate-NMF variant: also folds the removed norm into row k of H so
@@ -249,13 +275,20 @@ __global__ void normalize_columns_kernel(float* W, int M, int K, float* H, int N
     sh[threadIdx.x] = acc;
     __syncthreads();
     for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (threadIdx.x < s) sh[threadIdx.x] += sh[threadIdx.x + s];
+        if (threadIdx.x < s) {
+            sh[threadIdx.x] += sh[threadIdx.x + s];
+        }
         __syncthreads();
     }
     float norm = sqrtf(sh[0]) + 1e-12f;
-    for (int m = threadIdx.x; m < M; m += blockDim.x) W[(size_t)m * K + k] /= norm;
-    if (H)
-        for (int j = threadIdx.x; j < N; j += blockDim.x) H[(size_t)k * N + j] *= norm;
+    for (int m = threadIdx.x; m < M; m += blockDim.x) {
+        W[(size_t)m * K + k] /= norm;
+    }
+    if (H) {
+        for (int j = threadIdx.x; j < N; j += blockDim.x) {
+            H[(size_t)k * N + j] *= norm;
+        }
+    }
 }
 
 /* One block per problem: classic two-stage max-reduction over the first K rows
@@ -269,15 +302,21 @@ __global__ void max_normalize_batched_kernel(float* H, int R, int N, int K) {
     float* Hb = H + (size_t)blockIdx.x * R * N;
     size_t kn = (size_t)K * N, rn = (size_t)R * N;
     float mx = 0.f;
-    for (size_t i = threadIdx.x; i < kn; i += blockDim.x) mx = fmaxf(mx, fabsf(Hb[i]));
+    for (size_t i = threadIdx.x; i < kn; i += blockDim.x) {
+        mx = fmaxf(mx, fabsf(Hb[i]));
+    }
     sh[threadIdx.x] = mx;
     __syncthreads();
     for (int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (threadIdx.x < s) sh[threadIdx.x] = fmaxf(sh[threadIdx.x], sh[threadIdx.x + s]);
+        if (threadIdx.x < s) {
+            sh[threadIdx.x] = fmaxf(sh[threadIdx.x], sh[threadIdx.x + s]);
+        }
         __syncthreads();
     }
     float inv = 1.f / (sh[0] + 1e-20f);
-    for (size_t i = threadIdx.x; i < rn; i += blockDim.x) Hb[i] *= inv;
+    for (size_t i = threadIdx.x; i < rn; i += blockDim.x) {
+        Hb[i] *= inv;
+    }
 }
 
 /* One thread per (problem, column): z-normalize the first K rows so a plain dot
@@ -322,8 +361,9 @@ __global__ void znorm_batched_kernel(const float* H, int R, int N, int K, int P,
             e = sqrtf(fix2) / (sqrtf(fix2) + sqrtf(free2) + 1e-12f);
         }
         float scale = e / (sqrtf(var) + Z_REG);
-        for (int k = 0; k < K; k++)
+        for (int k = 0; k < K; k++) {
             Zb[(size_t)k * N + j] = (Hb[(size_t)k * N + j] - mean) * scale;
+        }
     }
 }
 
@@ -337,15 +377,19 @@ __global__ void znorm_batched_kernel(const float* H, int R, int N, int K, int P,
  * contiguous in no conventional layout). The scattered writes here cost one
  * pass; the wavefront reads it T-deep per band. Skewed size: No*(No+Ns-1). */
 __global__ void distance_batched_kernel(const float* __restrict__ Zo, int No,
-                                        const float* __restrict__ Zs, int Ns,
-                                        int K, float* __restrict__ Dskew) {
+                                        const float* __restrict__ Zs, int Ns, int K,
+                                        float* __restrict__ Dskew) {
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int i = blockIdx.y;
     int b = blockIdx.z;
-    if (j >= Ns) return;
+    if (j >= Ns) {
+        return;
+    }
     const float* Zb = Zs + (size_t)b * K * Ns;
     float r = 0.f;
-    for (int k = 0; k < K; k++) r += Zo[(size_t)k * No + i] * Zb[(size_t)k * Ns + j];
+    for (int k = 0; k < K; k++) {
+        r += Zo[(size_t)k * No + i] * Zb[(size_t)k * Ns + j];
+    }
     size_t mat = (size_t)No * (No + Ns - 1);
     Dskew[(size_t)b * mat + (size_t)(i + j) * No + i] = 1.f - r;
 }
@@ -371,17 +415,16 @@ __global__ void distance_batched_kernel(const float* __restrict__ Zo, int No,
 constexpr int DTW_MAX_T = 128;
 
 __global__ void dtw_band_kernel(int NoFull, int T, int Ns, int band_hop,
-                                const float* __restrict__ Dskew,
-                                float4* __restrict__ stats) {
+                                const float* __restrict__ Dskew, float4* __restrict__ stats) {
     __shared__ float c0[DTW_MAX_T], c1[DTW_MAX_T], c2[DTW_MAX_T];
     __shared__ float l0[DTW_MAX_T], l1[DTW_MAX_T], l2[DTW_MAX_T];
     float* cbuf[3] = {c0, c1, c2};
     float* lbuf[3] = {l0, l1, l2};
 
-    const int w = blockIdx.x;                /* band index */
-    const int m = blockIdx.y;                /* distance matrix (pitch shift) */
-    const int i0 = w * band_hop;             /* band's first candidate row */
-    const int i = threadIdx.x;               /* this thread's band row */
+    const int w = blockIdx.x;    /* band index */
+    const int m = blockIdx.y;    /* distance matrix (pitch shift) */
+    const int i0 = w * band_hop; /* band's first candidate row */
+    const int i = threadIdx.x;   /* this thread's band row */
     const size_t mat = (size_t)NoFull * (NoFull + Ns - 1);
     const float* Dm = Dskew + (size_t)m * mat;
 
@@ -392,9 +435,9 @@ __global__ void dtw_band_kernel(int NoFull, int T, int Ns, int band_hop,
     for (int d = 0; d < T + Ns - 1; d++) {
         float* cur = cbuf[d % 3];
         float* lcur = lbuf[d % 3];
-        const float* p1 = cbuf[(d + 2) % 3];   /* diagonal d-1 */
+        const float* p1 = cbuf[(d + 2) % 3]; /* diagonal d-1 */
         const float* lp1 = lbuf[(d + 2) % 3];
-        const float* p2 = cbuf[(d + 1) % 3];   /* diagonal d-2 */
+        const float* p2 = cbuf[(d + 1) % 3]; /* diagonal d-2 */
         const float* lp2 = lbuf[(d + 1) % 3];
 
         const int j = d - i;
@@ -403,25 +446,34 @@ __global__ void dtw_band_kernel(int NoFull, int T, int Ns, int band_hop,
             float dij = Dm[(size_t)(i0 + d) * NoFull + (i0 + i)];
             float c, len;
             if (i == 0) {
-                c = dij;                       /* free start along the query */
+                c = dij; /* free start along the query */
                 len = 1.f;
             } else if (j == 0) {
-                c = p1[i - 1] + dij;           /* column 0 accumulates */
+                c = p1[i - 1] + dij; /* column 0 accumulates */
                 len = (float)(i + 1);
             } else {
-                float best = p2[i - 1], l = lp2[i - 1];      /* diagonal */
-                if (p1[i - 1] < best) { best = p1[i - 1]; l = lp1[i - 1]; }
-                if (p1[i] < best) { best = p1[i]; l = lp1[i]; }
+                float best = p2[i - 1], l = lp2[i - 1]; /* diagonal */
+                if (p1[i - 1] < best) {
+                    best = p1[i - 1];
+                    l = lp1[i - 1];
+                }
+                if (p1[i] < best) {
+                    best = p1[i];
+                    l = lp1[i];
+                }
                 c = best + dij;
                 len = l + 1.f;
             }
             cur[i] = c;
             lcur[i] = len;
-            if (i == T - 1) {                  /* DTW cost function row */
+            if (i == T - 1) { /* DTW cost function row */
                 float warp = len / (float)T;
                 if (warp >= 0.7f && warp <= 1.5f) {
                     float cost = c / len;
-                    if (cost < mn) { mn = cost; arg = j; }
+                    if (cost < mn) {
+                        mn = cost;
+                        arg = j;
+                    }
                     mean_sum += cost;
                     nvalid++;
                 }
@@ -430,7 +482,11 @@ __global__ void dtw_band_kernel(int NoFull, int T, int Ns, int band_hop,
         __syncthreads();
     }
     if (i == T - 1) {
-        if (nvalid == 0) { mn = 1.f; mean_sum = 1.f; nvalid = 1; }
+        if (nvalid == 0) {
+            mn = 1.f;
+            mean_sum = 1.f;
+            nvalid = 1;
+        }
         stats[(size_t)m * gridDim.x + w] =
             make_float4(mn, mean_sum / nvalid, (float)arg, (float)nvalid);
     }
@@ -442,9 +498,8 @@ __global__ void dtw_band_kernel(int NoFull, int T, int Ns, int band_hop,
  * path-geometry features) and the full {cost, len} last row (host finds the
  * local minima = occurrence end points). One block per selected band; runs
  * on ~F<<nbands hypotheses, so the T*Ns byte map per band stays small. */
-__global__ void dtw_band_preds_kernel(int NoFull, int T, int Ns,
-                                      const int* __restrict__ band_idx, int band_hop,
-                                      const float* __restrict__ Dskew,
+__global__ void dtw_band_preds_kernel(int NoFull, int T, int Ns, const int* __restrict__ band_idx,
+                                      int band_hop, const float* __restrict__ Dskew,
                                       unsigned char* __restrict__ preds,
                                       float2* __restrict__ lastrow) {
     __shared__ float c0[DTW_MAX_T], c1[DTW_MAX_T], c2[DTW_MAX_T];
@@ -472,27 +527,41 @@ __global__ void dtw_band_preds_kernel(int NoFull, int T, int Ns,
             float c, len;
             unsigned char pred;
             if (i == 0) {
-                c = dij; len = 1.f; pred = 0;            /* free start */
+                c = dij;
+                len = 1.f;
+                pred = 0; /* free start */
             } else if (j == 0) {
-                c = p1[i - 1] + dij; len = (float)(i + 1); pred = 2;  /* up */
+                c = p1[i - 1] + dij;
+                len = (float)(i + 1);
+                pred = 2; /* up */
             } else {
                 float best = p2[i - 1], l = lp2[i - 1];
-                pred = 1;                                 /* diagonal */
-                if (p1[i - 1] < best) { best = p1[i - 1]; l = lp1[i - 1]; pred = 2; }
-                if (p1[i] < best) { best = p1[i]; l = lp1[i]; pred = 3; }
+                pred = 1; /* diagonal */
+                if (p1[i - 1] < best) {
+                    best = p1[i - 1];
+                    l = lp1[i - 1];
+                    pred = 2;
+                }
+                if (p1[i] < best) {
+                    best = p1[i];
+                    l = lp1[i];
+                    pred = 3;
+                }
                 c = best + dij;
                 len = l + 1.f;
             }
             cur[i] = c;
             lcur[i] = len;
             pf[(size_t)i * Ns + j] = pred;
-            if (i == T - 1) lr[j] = make_float2(c, len);
+            if (i == T - 1) {
+                lr[j] = make_float2(c, len);
+            }
         }
         __syncthreads();
     }
 }
 
-}  /* namespace */
+} /* namespace */
 
 void launch_window_frames(const float* x, int frames, float* out) {
     window_frames_kernel<<<grid_1d((size_t)frames * FFT_SIZE), BLOCK>>>(x, frames, out);
@@ -504,8 +573,8 @@ void launch_magnitude(const cufftComplex* cplx, int frames, float* V) {
     post_launch();
 }
 
-void launch_fused_wh_ratio(const float* W, const float* H, const float* V,
-                           float* Z, int M, int N, int R, int P) {
+void launch_fused_wh_ratio(const float* W, const float* H, const float* V, float* Z, int M, int N,
+                           int R, int P) {
     if (R > FUSE_MAX_R) {
         std::fprintf(stderr, "fused_wh_ratio: R=%d exceeds FUSE_MAX_R=%d\n", R, FUSE_MAX_R);
         std::exit(1);
@@ -525,15 +594,14 @@ void launch_row_sum_batched(const float* H, int R, int N, int P, float* out) {
     post_launch();
 }
 
-void launch_update_h_batched(float* H, const float* numH, const float* wcol,
-                             int R, int N, int P) {
-    dim3 grid((N + BLOCK - 1) / BLOCK, P * R);  /* one grid row per (b, r) */
+void launch_update_h_batched(float* H, const float* numH, const float* wcol, int R, int N, int P) {
+    dim3 grid((N + BLOCK - 1) / BLOCK, P * R); /* one grid row per (b, r) */
     update_h_batched_kernel<<<grid, BLOCK>>>(H, numH, wcol, N);
     post_launch();
 }
 
-void launch_update_w_batched(float* W, const float* numW, const float* hrow,
-                             int M, int R, int P, int n_fixed) {
+void launch_update_w_batched(float* W, const float* numW, const float* hrow, int M, int R, int P,
+                             int n_fixed) {
     size_t mr = (size_t)M * R;
     dim3 grid(grid_1d(mr), P);
     update_w_batched_kernel<<<grid, BLOCK>>>(W, numW, hrow, M, R, n_fixed);
@@ -565,35 +633,34 @@ void launch_znorm_batched(const float* H, int R, int N, int K, int P, float* Z) 
     post_launch();
 }
 
-void launch_distance_batched(const float* Zo, int No, const float* Zs, int Ns,
-                             int K, int P, float* D) {
+void launch_distance_batched(const float* Zo, int No, const float* Zs, int Ns, int K, int P,
+                             float* D) {
     dim3 grid((Ns + BLOCK - 1) / BLOCK, No, P);
     distance_batched_kernel<<<grid, BLOCK>>>(Zo, No, Zs, Ns, K, D);
     post_launch();
 }
 
-void launch_dtw_band_preds(int NoFull, int T, int Ns, int nsel,
-                           const int* band_idx, int band_hop, const float* Dskew,
-                           unsigned char* preds, float2* lastrow) {
+void launch_dtw_band_preds(int NoFull, int T, int Ns, int nsel, const int* band_idx, int band_hop,
+                           const float* Dskew, unsigned char* preds, float2* lastrow) {
     if (T > DTW_MAX_T) {
         std::fprintf(stderr, "dtw_band_preds: T=%d exceeds DTW_MAX_T=%d\n", T, DTW_MAX_T);
         std::exit(1);
     }
     int threads = ((T + 31) / 32) * 32;
-    dtw_band_preds_kernel<<<nsel, threads>>>(NoFull, T, Ns, band_idx, band_hop,
-                                             Dskew, preds, lastrow);
+    dtw_band_preds_kernel<<<nsel, threads>>>(NoFull, T, Ns, band_idx, band_hop, Dskew, preds,
+                                             lastrow);
     post_launch();
 }
 
-void launch_dtw_bands(int NoFull, int T, int Ns, int nmat, int nbands,
-                      int band_hop, const float* Dskew, float4* stats) {
+void launch_dtw_bands(int NoFull, int T, int Ns, int nmat, int nbands, int band_hop,
+                      const float* Dskew, float4* stats) {
     if (T > DTW_MAX_T) {
         std::fprintf(stderr, "dtw_band_kernel: T=%d exceeds DTW_MAX_T=%d\n", T, DTW_MAX_T);
         std::exit(1);
     }
-    int threads = ((T + 31) / 32) * 32;   /* whole warps covering the band */
+    int threads = ((T + 31) / 32) * 32; /* whole warps covering the band */
     dtw_band_kernel<<<dim3(nbands, nmat), threads>>>(NoFull, T, Ns, band_hop, Dskew, stats);
     post_launch();
 }
 
-}  /* namespace sd */
+} /* namespace sd */

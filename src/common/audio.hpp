@@ -16,4 +16,4 @@ std::vector<float> load_preprocessed(const std::string& path, float max_seconds)
 /* Kill the process after limit_seconds (shared-machine etiquette, CS179 convention). */
 void enforce_time_limit(int limit_seconds);
 
-}  /* namespace sd */
+} /* namespace sd */

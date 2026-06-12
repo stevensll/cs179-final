@@ -18,17 +18,18 @@ namespace sd {
  * headers on this box. */
 static std::vector<float> decimate_2x(const std::vector<float>& x) {
     constexpr int TAPS = 63;
-    constexpr float FC = 0.25f;  /* cutoff / input rate */
+    constexpr float FC = 0.25f; /* cutoff / input rate */
     float h[TAPS];
     float hsum = 0.f;
     for (int n = 0; n < TAPS; n++) {
         float m = n - (TAPS - 1) / 2.0f;
-        float sinc = (m == 0.f) ? 2.f * FC
-                                : sinf(2.f * M_PI * FC * m) / (M_PI * m);
+        float sinc = (m == 0.f) ? 2.f * FC : sinf(2.f * M_PI * FC * m) / (M_PI * m);
         h[n] = sinc * (0.54f - 0.46f * cosf(2.f * M_PI * n / (TAPS - 1)));
         hsum += h[n];
     }
-    for (int n = 0; n < TAPS; n++) h[n] /= hsum;  /* unity DC gain */
+    for (int n = 0; n < TAPS; n++) {
+        h[n] /= hsum; /* unity DC gain */
+    }
 
     std::vector<float> y(x.size() / 2);
     for (size_t i = 0; i < y.size(); i++) {
@@ -36,7 +37,9 @@ static std::vector<float> decimate_2x(const std::vector<float>& x) {
         long center = (long)(2 * i);
         for (int n = 0; n < TAPS; n++) {
             long src = center + n - (TAPS - 1) / 2;
-            if (src >= 0 && src < (long)x.size()) acc += h[n] * x[src];
+            if (src >= 0 && src < (long)x.size()) {
+                acc += h[n] * x[src];
+            }
         }
         y[i] = acc;
     }
@@ -62,28 +65,37 @@ std::vector<float> load_preprocessed(const std::string& path, float max_seconds)
     std::vector<float> mono((size_t)got);
     for (size_t i = 0; i < mono.size(); i++) {
         float s = 0.f;
-        for (int c = 0; c < info.channels; c++) s += interleaved[i * info.channels + c];
+        for (int c = 0; c < info.channels; c++) {
+            s += interleaved[i * info.channels + c];
+        }
         mono[i] = s / info.channels;
     }
 
     /* RMS-normalize */
     double e = 0.0;
-    for (float s : mono) e += (double)s * s;
+    for (float s : mono) {
+        e += (double)s * s;
+    }
     float rms = (float)std::sqrt(e / mono.size());
-    if (rms > 0.f)
-        for (float& s : mono) s /= rms;
+    if (rms > 0.f) {
+        for (float& s : mono) {
+            s /= rms;
+        }
+    }
 
     if (info.samplerate == 2 * SAMPLE_RATE) {
         mono = decimate_2x(mono);
     } else if (info.samplerate != SAMPLE_RATE) {
-        std::fprintf(stderr, "error: %s is %d Hz; only %d or %d supported (MVP)\n",
-                     path.c_str(), info.samplerate, SAMPLE_RATE, 2 * SAMPLE_RATE);
+        std::fprintf(stderr, "error: %s is %d Hz; only %d or %d supported (MVP)\n", path.c_str(),
+                     info.samplerate, SAMPLE_RATE, 2 * SAMPLE_RATE);
         std::exit(1);
     }
 
     if (max_seconds > 0.f) {
         size_t n = (size_t)(max_seconds * SAMPLE_RATE);
-        if (mono.size() > n) mono.resize(n);
+        if (mono.size() > n) {
+            mono.resize(n);
+        }
     }
     return mono;
 }
@@ -96,4 +108,4 @@ void enforce_time_limit(int limit_seconds) {
     }).detach();
 }
 
-}  /* namespace sd */
+} /* namespace sd */

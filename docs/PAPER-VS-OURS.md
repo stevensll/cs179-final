@@ -1,7 +1,7 @@
 # Canonical paper vs. this implementation — what changed and why
 
-Companion note to `docs/PAPER-MAPPING.md` (block-by-block code mapping) and
-`RESULTS.md` (numbers). This is the narrative: every place we deviate from
+Companion note to the README's paper ↔ code mapping table and
+the README "Results" section (numbers). This is the narrative: every place we deviate from
 Gururani & Lerch 2017, split by *why* — some changes exist because our task is
 harder than the paper's, some because they measurably improved accuracy, and
 some purely for GPU throughput (held to a no-accuracy-loss gate).
@@ -110,7 +110,7 @@ ladder):
   worst-across-{4,8}s windows (punishes looped true samples). Machinery for
   the first is kept disabled in `params.hpp` (SCREEN_KEEP).
 
-Net effect (RESULTS.md has the table): 64-candidate query scan ~340 s → 19.3 s
+Net effect (the README "Performance" table): 64-candidate query scan ~340 s → 19.3 s
 (18×), full 70-query benchmark ~8.5 h → ~13 min, with *better* accuracy than
 the starting point.
 
