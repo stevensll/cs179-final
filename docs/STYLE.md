@@ -108,7 +108,8 @@ Google style first, then match what the labs did.
   them.
 - Paired `.cu`/`.cuh` files (kernels + launchers in `.cu`, declarations + launch
   wrappers in `.cuh`). Currently all custom kernels share one `kernels.cu(h)` pair
-  (the per-stage split is a TODO.md cleanup item); cuBLAS wrappers in `gemm.cu(h)`,
+  (the per-stage split is a known cleanup item; see the README's Improvements);
+  cuBLAS wrappers in `gemm.cu(h)`,
   orchestration in `gpu_pipeline.cu(h)`. Host-only logic in `.cpp`.
 - `src/common/` code must compile without CUDA (the CPU demo links it standalone).
 - Every executable starts with `sd::enforce_time_limit(...)` (`src/common/audio.cpp`;

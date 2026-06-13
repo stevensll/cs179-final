@@ -1,61 +1,70 @@
-# CS 179 Final Project — GPU Sample Detection in Music
-
+# CS 179 Final Project — Song Sample Detection in Music using GPUs
 Steven Lei 2026
 
 ## Brief
 
-This project implements **sample detection**: a *sample* is a short snippet
-of an old recording reused inside a new song — usually transposed, sped
-up/slowed down, and buried under new instruments. Given a song that contains
-a sample, find the recording it came from in a directory of songs.
-Implements [Gururani & Lerch, *Automatic Sample Detection in Polyphonic Music* (ISMIR 2017)](https://archives.ismir.net/ismir2017/paper/000118.pdf).
+This project implements the sample detection algorithm described in the paper  [Gururani & Lerch, *Automatic Sample Detection in Polyphonic Music* (ISMIR 2017)](https://archives.ismir.net/ismir2017/paper/000118.pdf). The goal is that given an input song, find the song that it potentially samples in a directory of existing songs.
 
-Those transformations defeat fingerprint matchers (Shazam-style exact
-lookup), so the paper decomposes the audio instead: **NMF** factorizes each
-candidate song's spectrogram into a set of spectral patterns; a
-partially-fixed NMF then measures how well those patterns — tried at 41
-transpositions — explain the query song; **subsequence DTW** (dynamic-
-programming sequence alignment that tolerates speed differences) locates the
-snippet; and a **random forest** over 13 features describing the alignment's
-shape makes the final call. Every stage runs on the GPU with custom CUDA
-kernels (cuFFT and cuBLAS are the two deliberate library calls), including
-the forest itself. A single-threaded CPU implementation of the identical
-algorithm is the correctness reference (scores match to 4 decimals).
+In the music industry, a *sample* is a snippet of an older song that has been reused to produce a newer song. The sample could be as simple as a drum beat or as advanced as using the melody and lyrics as a sound effect. Some popular songs / artists known for sampling are Kanye West (e.g. [Touch the Sky](https://www.youtube.com/watch?v=B95OUKk7alM&list=RDB95OUKk7alM&start_radio=1) which samples [Move On Up](https://www.youtube.com/watch?v=A9RMr9KuVZo&list=RDA9RMr9KuVZo&start_radio=1)) or Madonna ([Hung Up](https://www.youtube.com/watch?v=EDwb9jOVRtU&list=RDEDwb9jOVRtU&start_radio=1) which samples [Gimme Gimme](https://www.youtube.com/watch?v=XEjLoHdbVeE&list=RDXEjLoHdbVeE&start_radio=1))
+
+While song identification algorithms like Shazam work very well, there is currently no state of the art sample detector. This is because although samples may sound fairly obvious to a listener, they are often pitch shifted, time dilated, or altered every so slightly that computationally makes it much different than the original song it samples.
+
+Building on Gururani and Lerch's algorithm and using the 100-song labeled Sample100 dataset, I correctly identify the sampled source as the #1 match for **50% of queries** (ranking against all 64 candidate originals — random chance is 1.6%), and reach an **F-measure of 75%** under the paper's own protocol versus their 62.5% — on a GPU pipeline that runs the entire dataset in **~13 minutes** (versus an estimated ~8.5 hours unoptimized). This successfully proves the concept of the paper.
+
+**Please see below documentation for all information related to the project.**
+
+Here is a table of contents that summarizes the sections
+
+| Section | Description |
+|---|---|
+| Brief | Project summary and document outline |
+| Repo layout | Where each part of the codebase lives |
+| Usage | Build instructions and example commands |
+| Evaluation | The dataset, and how to read the result metrics |
+| CPU Results | CPU timing and CPU↔GPU parity |
+| GPU Results | Detection accuracy and runtime on the benchmark |
+| Paper → GPU Mapping | How each step of the paper's algorithm maps to GPU code |
+| GPU Optimizations | The optimization campaign and performance results |
+| Improvements | Remaining work and the accuracy roadmap |
+| Errata | Verification, caveats, AI usage, and references |
+
+## Repo layout
 
 ```
-$ ./build/gpu_detect --iters 60 "music/Hung Up.wav" music
-...
-ranking (best match first):
-1. Gimme Gimme.wav              score 0.4149 (shift +0.00 st, cand @96s -> query @47s)
-2. Shape of My Heart.wav        score 0.5676 (shift +2.75 st, cand @20s -> query @186s)
-...
-total 3.0 s (2 gpus)
+src/common/    audio I/O + preprocessing, shared by the CPU and GPU builds
+src/cpu/       single-threaded CPU reference (matches the GPU to 4 decimals)
+src/gpu/       custom CUDA kernels, cuBLAS wrappers, GPU pipeline, rf_infer
+music/         song library + query songs (the demo set used in Examples)
+datasets/      Sample100 evaluation set: ground-truth pairs + audio/
+tests/         synthetic fixtures + the verification-ladder script
+tools/         eval runner, RF train/export, pool analysis, plotting, DATASET.md
+plots/         profiling outputs + the figures shown in this README
+docs/          paper PDF + deep references (technical design, accuracy roadmap)
+PROPOSAL.md    original proposal + timeline
+CLAUDE.md      build log / operating notes
+Makefile       `make` / `make clean` — thin wrapper over CMake
+CMakeLists.txt, .clang-format    build configuration + Google C++ style
+build/         out-of-source build output (not committed)
 ```
 
-Madonna's *Hung Up* does sample ABBA's *Gimme Gimme Gimme* — at ABBA's 1:36,
-appearing at Madonna's 0:47, with no pitch shift. The scan took 3 seconds for
-a five-song library (originally 42 s; the full optimization story is below).
 
-**This file is the complete documentation.** Deep references, in rough order
-of usefulness: `docs/PAPER-VS-OURS.md` (every deviation from the paper and
-why), `plots/PERF-CHARACTERIZATION.md` (kernel-level profiling), `docs/TECHNICAL.md`
-(design), `docs/TESTING.md` (test definitions), `docs/ACCURACY-OPTIMIZATIONS.md`
-(future-work roadmap), `CLAUDE.md` (full build log with every measurement).
+## Usage
 
-## Build
+### Pre-requisites
+* CUDA toolkit (12.x) 
+* CMake ≥ 3.24 
+* libsndfile dev headers
+*  NVIDIA GPU - this project is compiled for the Titan's architecture; developed on 2× RTX A5000
 
-Requires: CUDA toolkit (12.x), CMake ≥ 3.24, libsndfile dev headers, and an
-NVIDIA GPU (compiled for the host's architecture; developed on 2× RTX A5000,
-sm_86 — a second GPU is used automatically when present). No other
-dependencies.
+### Build
 
+From the repository root:
 ```
 make            # configures + builds into build/ (CMake under the hood)
 make clean      # removes build/
 ```
-
-## Usage
-
+### Execution
+From the repository root:
 ```
 ./build/gpu_detect [flags] <query.wav> <library_dir>
 ./build/cpu_demo   [flags] <query.wav> <library_dir>
@@ -75,6 +84,26 @@ GPU pipeline** — same stages, same seeded initializations.
 | `--gpus N` | gpu | cap the number of GPUs used | all |
 | `--no-cache` | gpu | bypass the per-song candidate-template disk cache (`.tcache/`) | cache on |
 | `--features F.csv` | gpu | dump the classifier's 13 path features per hypothesis instead of ranking | off |
+
+
+### Examples
+
+```bash
+# One detection on the GPU — find what "Hung Up" samples in the music/ library:
+./build/gpu_detect "music/Hung Up.wav" music
+
+# The same detection on the CPU reference (slow; truncate the query to finish fast):
+./build/cpu_demo --max-seconds 60 "music/Hung Up.wav" music
+
+# Use your own library — point the second argument at any folder of .wav files:
+./build/gpu_detect my_song.wav /path/to/my_library
+
+# One query against the Sample100 originals (the 64-song benchmark library):
+./build/gpu_detect datasets/sample100/audio/T001.wav datasets/sample100/library
+
+# The entire Sample100 benchmark — every query over the whole dataset (~13 min, 2 GPUs):
+python3 tools/eval_sample100.py --gpus 2 --iters 60
+```
 
 ### Inspecting a match
 
@@ -104,183 +133,95 @@ python3 tools/export_forest.py   # flat forest + verification set for the GPU ke
 ./build/rf_infer plots/rf/forest.bin plots/rf/verify_rows.f32 plots/rf/verify_probs.f32 13
 ```
 
-## Test
+## Evaluation
 
-There are five checks. The first four are end-to-end detections whose
-correct answer is known in advance; `tests/run_ladder.sh` runs them (every
-change in this project's history had to keep them passing). In plain words:
+**Dataset.** I evaluate on **Sample100** (Van Balen 2011), the public
+benchmark for this task: a collection of songs annotated with known sample
+relationships — which song sampled which, and at what timestamp. It's the
+closest public stand-in for the paper's own dataset, which was never released.
+After dropping a few tracks with unavailable or wrong audio (everything is
+sourced from YouTube; see `tools/DATASET.md`), I use **70 query songs**, each
+with exactly one true original hidden in a pool of **64 candidate originals**.
 
-1. **Identity** — query a song against a copy of itself. Must match at
-   rank 1, zero pitch shift, aligned positions.
-2. **Planted sample** — paste 8 s of song A into the middle of song B
-   (done with ffmpeg by `tests/make_fixtures.sh`), then ask the detector to
-   find A inside B. Must report the splice point and zero shift — we know
-   both exactly, because we did the splicing.
-3. **Planted sample, sped up 6%** — speeding audio up raises its pitch by a
-   predictable amount (12·log₂(1.06) ≈ +1.01 semitones; a semitone = one
-   piano key). The detector must report that shift — a value predicted by
-   theory, not tuned for.
-4. **Real-world pair** — Madonna's *Hung Up* famously samples ABBA's
-   *Gimme Gimme Gimme*; it must rank #1 in a real library.
+**How a run works.** Each query song is scored against all 64 candidates, and
+the candidates are **ranked** best-match-first. The headline number is
+**hit@1** — the fraction of the 70 queries whose true original came out ranked
+#1 (random guessing would be ≈ 1.6%, i.e. 1 in 64).
 
-| # | Check | Result (final build, lower score = better) |
-|---|---|---|
-| 1 | identity | **pass** — rank 1, 0.171 @ +0.00 st |
-| 2 | planted sample | **pass** — 0.421 @ +0.00 st, splice point exact |
-| 3 | planted, +6% speed | **pass** — 0.346 @ **+1.00 st** (predicted +1.01) |
-| 4 | Hung Up → Gimme Gimme | **pass** — rank 1, 0.415 vs 0.568 runner-up |
+**The random forest.** The raw alignment produces a single match score, but
+that score alone is fooled by songs that merely *sound* similar. So, following
+the paper, the final decision comes from a **random forest** — an ensemble of
+200 decision trees — fed **13 features that describe the *shape* of the best
+alignment** (how straight it is, how steady its tempo, how low and how uniform
+its cost). Real samples produce straight, steady, low-cost alignments;
+coincidental look-alikes wander. The forest learns that distinction from the
+labeled dataset and re-scores every candidate; it is trained and tested with
+cross-validation so it is never evaluated on a song it trained on (no data
+leakage). This stage is what lifts hit@1 from 11% to 50%.
 
-5. **CPU ↔ GPU agreement** — the CPU implementation runs the same algorithm
-with the same random seeds, so on the checks above its scores must match the
-GPU's to 4 decimal places. They do, despite TF32 tensor cores and
-`--use_fast_math` on the GPU side. The same runs give the timing contrast:
+The paper frames the task as a yes/no detector rather than a ranking, scored
+with the **F-measure** — so I report that too, but only where I compare
+directly against the paper. Three terms:
 
-| Canary config (30 s query, 30 iters, 1 candidate) | time |
-|---|---:|
-| `cpu_demo` (single thread) | 47.8 s |
-| `gpu_detect` (1 GPU) | ~1 s |
-| historical v1 measurement (45 s query, matched config) | CPU 149 s vs GPU 2.2 s = **68×** |
+- **Precision** — when the system declares a match, how often it is correct.
+- **Recall** — of all the real samples present, how many it catches.
+- **F-measure** — a single score balancing the two (their harmonic mean);
+  this is the paper's headline metric.
 
-A full-config CPU library scan extrapolates to hours — by design, not run.
+## CPU Results
 
-## Results
+The CPU build runs the identical algorithm single-threaded, so its scores
+match the GPU's to 4 decimal places (parity verified — see Errata). It is the
+correctness reference and the speed baseline, not a way to run the full
+benchmark: a single full-length search already takes about half a day, so the
+whole dataset would take roughly a week.
 
-### Sample100 benchmark
-
-The real evaluation is **Sample100** (Van Balen 2011), the public standard
-benchmark for this task: 70 hip-hop songs with a known sample each, ranked
-against all **64** originals in the set (the paper's own dataset was never
-published; protocol differences are noted below). Metrics: **hit@k** = the
-true original ranked in the top k; **MRR** = mean of 1/rank (1.0 = always
-first; random guessing ≈ 0.07 here). The random-forest stage is evaluated
-without data leakage: grouped cross-validation, predictions only from folds
-that never saw the query, thresholds chosen on training data.
-
-| Sample100, 70 queries × 64 candidates | DTW score alone | + random forest |
+| | CPU (1 thread) | GPU (2× A5000) |
 |---|---:|---:|
-| hit@1 | 11.4% | **50.0%** |
-| hit@3 | 21.4% | **57.1%** |
-| MRR | 0.214 | **0.557** |
-| song-level precision / recall / F | — (no threshold) | **50.0 / 100.0 / 66.7%** |
+| Accuracy | identical to GPU (below) | — |
+| One search, matched config | 47.8 s | ~1 s |
+| Full Sample100 benchmark | ~1 week (not run) | ~13 min |
+
+## GPU Results
+
+Full pipeline on the **Sample100** benchmark — 70 query songs, each ranked
+against all 64 candidate originals:
+
+| Metric | Result |
+|---|---|
+| **hit@1** (true original ranked #1) | **50.0%** — 11.4% without the classifier stage |
+| **F-measure** | **66.7%** |
+| Full benchmark runtime (2× A5000) | **~13 min** |
+
+Under the paper's easier 10-candidate protocol, my F-measure is **75.0%**
+vs the paper's **62.5%** — the concept reproduced and then some (the full
+precision/recall curve and the caveats behind that comparison are in Errata).
 
 ![accuracy comparison](plots/accuracy_comparison.png)
 
-Why the forest matters so much: the DTW stage *finds* the true sample
-(correct shift, correct location) but gets outranked by songs that merely
-*sound similar* — candidates with simple, clean melodies match a little bit
-of everything. The 13 features describing the alignment's shape separate the
-two, exactly as the paper claims: a real sample aligns along a straight,
-full-length, low-cost path; a coincidental resemblance wanders. The trained
-forest's feature importances rank path shape highest (avg_slope 0.130,
-avg_cost 0.107, min_cost 0.100), independently confirming that thesis.
+The classifier stage is what lifts hit@1 from 11% to 50%: the ranking stage
+*finds* the true sample, but sound-alike songs (simple, clean melodies that
+match a bit of everything) outrank it; the 13 alignment-shape features tell
+the two apart.
 
-### Apples-to-apples with the paper
+## Paper → GPU Mapping
 
-The paper picks the sample's source out of **10** candidates (1 true +
-9 random); we rank against **64** — ~6× harder by chance alone. To compare
-fairly, we replay the paper's exact setup using our cross-validation scores
-(`tools/pool_analysis.py`: top-1 computed exactly, precision/recall by
-simulation):
+A quick vocabulary, used throughout: a **spectrogram** is a song's frequency
+content over time; **NMF** factorizes it as V ≈ W·H, where the columns of W
+are recurring spectral patterns (the *templates* — "this chord", "this drum
+hit") and the rows of H mark when each is active (the *activations*); a
+**semitone** is one piano key (transposing shifts the whole spectrum by a
+fixed factor). End to end, the pipeline is: preprocess → spectrogram →
+factor each candidate song into templates → transpose them across 41 pitch
+hypotheses → re-factor the query against those frozen templates → build a
+similarity matrix → align with subsequence DTW → score → classify. An early
+log-frequency pooling step shrinks each song to ≈ 5,200 frames (≈ 7.6 MB) and
+cuts all downstream work ~5.6×.
 
-| | Paper | Ours, 64-pool | Ours @ paper's protocol (10-pool) |
-|---|---:|---:|---:|
-| Precision | 83.3% | 50.0% | **60.4%** |
-| Recall | 50.0% | 100.0% | **99.0%** |
-| F-measure | 62.5% | 66.7% | **75.0%** |
-| Top-1 accuracy | — | 50.0% | **60.3%** |
-
-![precision/recall curve](plots/pr_curve.png)
-
-Honest caveats before citing these:
-
-- **Different operating points**: the paper's 83.3% precision came at 50%
-  recall — their threshold declines to answer half the queries. Ours answers
-  every query (every Sample100 query *has* a sample, so abstaining is never
-  rewarded), making our precision equal top-1 accuracy. Run conservatively,
-  our forest reaches 85–100% precision at 23–41% recall, and 52.2% at the
-  paper's exact 50%-recall point (curve above).
-- **Different negatives**: even at matched pool size, our "random" decoys
-  are other much-sampled songs from the same genres — far more confusable
-  than the paper's random picks likely were.
-- **Different datasets**: their 80-pair corpus is unpublished; Sample100
-  skews hard (short, chopped, heavily produced samples).
-
-### Real-pair anecdotes (`music/`, DTW score alone — no forest)
-
-| Pair | Result |
-|---|---|
-| *Hung Up* → *Gimme Gimme* | **pass, decisive** (0.415 vs 0.568) |
-| *Lucid Dreams* → *Shape of My Heart* | **pass** (rank #1 at 0.583; reported position differs from the known alignment) |
-| *Touch The Sky* → *Move On Up* | **fail** — the true alignment is found but ranks #3 behind two sound-alikes: exactly the failure class the forest fixes on the benchmark |
-
-### Performance
-
-| Workload (warm caches, `--iters 60`, 2 GPUs) | original | now | speedup |
-|---|---:|---:|---:|
-| 5-candidate full-song library scan | 42.0 s | **3.0 s** | **14×** |
-| full-song query vs 64-candidate library | ~340 s | **19.3 s** | **18×** |
-| 15 s clip vs 64-candidate library | 21.7 s | **2.3 s** | **9.4×** |
-| full 70-query Sample100 benchmark | ~8.5 h (est.) | **~13 min** | **~40×** |
-| forest inference (200 trees) | 0.16 M rows/s (sklearn, 32 cores) | **3.1 M rows/s** (1 GPU) | **19×** |
-
-![optimization progression](plots/speedup_progression.png)
-
-## Implementation details
-
-### Pipeline (with sizes)
-
-Vocabulary, once: a **spectrogram** V is frequency content over time
-(columns = ~46 ms time frames); NMF factorizes V ≈ W·H where the columns of
-**W** are recurring spectral patterns ("this chord", "this drum hit" — the
-*templates*) and the rows of **H** say when each pattern is active (the
-*activations*). A **semitone (st)** is one piano key; transposing a sample
-shifts its whole spectrum by a fixed factor. Sizes below are for a ~4-minute
-song (22.05 kHz, FFT 4096, hop 1024, ~21.5 frames/s ≈ 5200 frames):
-
-1. **Preprocess + spectrogram** (both songs): downmix, normalize, decimate
-   2:1; 2049-bin FFT magnitudes pooled onto a **log-frequency axis**
-   (4 bins/semitone → 367 bins, one GEMM). Two wins: ~5.6× less compute
-   everywhere downstream, and a pitch shift becomes an **exact integer
-   row-translation** of a template. V ∈ ℝ^(367×~5200) ≈ 7.6 MB float.
-2. **Candidate NMF**: factorize the *full* candidate song into K=32
-   templates (the paper uses K=10 on the isolated sample, which we don't
-   have; K=32 chosen by sweep + full-benchmark confirmation). Cached per
-   library song (`.tcache/`, fingerprint-keyed).
-3. **Transposed template bank**: each template translated by p·4 rows for 41
-   hypotheses (−5..+5 st in 0.25 st steps — finer than the paper's 12,
-   because real-world speed changes land at fractional shifts).
-4. **Partially-fixed NMF on the query**: W = [candidate's templates, frozen |
-   20 free templates]; the free ones absorb everything in the query that
-   isn't the candidate, so the frozen activations indicate *presence*.
-   All 41 shifts × all candidates solve as **one strided-batched problem**
-   (every problem is query-sized — candidate length never enters — so
-   candidates batch without padding).
-5. **Distance matrix** per shift: how similar is the candidate's activation
-   pattern at time i to the query's at time j (regularized correlation,
-   §3.2.1–3.2.2), written **diagonal-skewed** so the DTW wavefront reads
-   coalesced; chunked over shifts under a 4 GB budget.
-6. **Banded subsequence DTW**: the paper's alignment recurrence (eq. 2), run
-   over every 4 s window of the candidate (1 s step) — each window is a
-   "maybe the sample is here" hypothesis, and they all reuse the same
-   distance matrix.
-7. **Scoring**: a true match shows up as a sharp *local minimum* in
-   alignment cost at exactly ONE shift; coincidental similarity is mildly
-   cheap everywhere. Score = depth of the best minimum, normalized by that
-   window's median across shifts and by the candidate's own hypothesis
-   distribution, with implausibly-warped paths rejected (§3.3.2).
-8. **Classifier stage (§3.3–3.4)**: for the top hypotheses, DTW re-runs with
-   predecessor recording, the alignment paths are backtracked, and the
-   paper's 13 path-shape features feed a 200-tree random forest (trained on
-   Sample100, leakage-safe). GPU inference via a FIL-style kernel whose
-   output matches sklearn to 6e-8.
-
-### Paper ↔ code mapping
-
-Every block of the paper's pipeline (Figure 1 / §3) exists in code. Fidelity
-markers: **1:1** = faithful implementation; **adapted** = same block, inputs
-or parameters changed (labels D1–D6); **added** = block not in the paper
-(A1–A2, needed because we rank a full library without ground-truth sample
-audio). The full narrative of every deviation is `docs/PAPER-VS-OURS.md`.
+Every block of the paper's pipeline (Figure 1 / §3) maps to code below.
+Fidelity markers: **1:1** = faithful; **adapted** (labels D1–D6) = same block
+with parameters or inputs changed; **added** (A1–A2) = not in the paper,
+needed because I rank a full library without the isolated sample audio.
 
 | Paper block | Code | Fidelity — changes & optimizations |
 |---|---|---|
@@ -296,8 +237,19 @@ audio). The full narrative of every deviation is `docs/PAPER-VS-OURS.md`.
 | Feature extraction §3.3 (13 path/cost features) | `dtw_band_preds_kernel` + host `backtrack_path()` → `gpu_extract_features()` (`--features`) | **1:1**: predecessor-recording DTW re-sweep of the top hypotheses, host backtracking, end points grouped by path start |
 | Random forest §3.4 (200 trees, √13 features) | `tools/train_rf.py` + `forest_predict_kernel` (`src/gpu/rf_infer.cu`) | **1:1** config; trained on Sample100 (the paper's corpus was never published) with GroupKFold leakage protection; GPU inference via FIL-style packed nodes, sklearn-exact output (6e-8) |
 
-The full narrative of accuracy and performance decisions — including
-everything tried and reverted — is `docs/PAPER-VS-OURS.md`.
+### Summary of changes from the paper
+
+Two changes are structural, forced by the setting: the paper starts from the
+*isolated sample* and makes a yes/no call against 10 candidates, whereas I
+have only full songs and *rank* all 64. So my "sample" NMF runs on the whole
+candidate song with more templates, the "where is the sample" search becomes
+the dense DTW band sweep (D1, D5), and ranking adds the pitch-selectivity and
+hypothesis-distribution calibration the paper doesn't need (A1, A2). The rest
+are accuracy refinements — a finer pitch grid, the log-frequency axis, the
+regularized correlation (D3, D6, D4) — plus the GPU rewrites in the next
+section. Every change had to pass the verification checks and not regress the
+benchmark; several candidates (early pitch-shift pruning, a larger fused-kernel
+tile, fewer NMF iterations) were tried and reverted on exactly those gates.
 
 ### Kernels
 
@@ -321,33 +273,46 @@ where cuBLAS underperforms was replaced by the fused custom kernel (~8 TFLOPS
 vs ~430 GFLOPS measured on that shape). Rationale:
 `docs/gpu-library-vs-custom-kernels.md`.
 
-### Optimization campaign
+## GPU Optimizations
 
-Standard benchmark throughout: the 5-candidate full-song scan (`music/`,
-`--iters 60`, both GPUs unless noted). Every kept change passed the
-verification ladder AND an accuracy gate — accuracy *improved* over the
-campaign. Per-iteration profiles in `plots/00_baseline` … `plots/06_fil`.
+Net effect, end to end:
 
-| # | Change | Scan | Note |
+| Workload (warm caches, `--iters 60`, 2 GPUs) | original | now | speedup |
+|---|---:|---:|---:|
+| 5-candidate full-song scan | 42.0 s | **3.0 s** | **14×** |
+| full-song query vs 64-candidate library | ~340 s | **19.3 s** | **18×** |
+| 15 s clip vs 64-candidate library | 21.7 s | **2.3 s** | **9.4×** |
+| full 70-query benchmark | ~8.5 h (est.) | **~13 min** | **~40×** |
+| forest inference (200 trees) | 0.16 M rows/s (sklearn, 32 cores) | **3.1 M rows/s** (1 GPU) | **19×** |
+
+![optimization progression: per-iteration speedup with the accuracy gate overlaid](plots/speedup_progression.png)
+
+How I got there. Standard benchmark throughout: the 5-candidate full-song
+scan (`music/`, `--iters 60`, both GPUs unless noted). Every kept change
+passed the verification ladder AND an accuracy gate — accuracy *improved*
+over the campaign. Per-iteration profiles in `plots/00_baseline` …
+`plots/06_fil`.
+
+| # | Optimization | Scan | What it did |
 |---|---|---:|---|
-| 0 | v3 algorithm, pre-optimization | 42.0 s | baseline; DTW = 33.6% of wall, ~325k launches/candidate |
-| 1 | TF32 tensor-core GEMMs | 37.2 s | scores drift ≤1e-4 |
-| 2 | Persistent-band DTW kernel over diagonal-skewed distances | 21.0 s | bit-identical; killed ~80 GB traffic + 600 MB D2H per candidate |
-| 3 | Multi-GPU (worker per device, shared queue) | 12.8 s | bit-identical |
-| 4 | Simultaneous-update NMF (3 GEMMs + 1 ratio/iter, was 4+2) | 9.3 s | *improved* eval ranks (gate MRR 0.215 → 0.354) |
-| — | Two-stage shift screening (15/8, then 25/16) | — | **reverted**: accuracy gate failed both times |
-| 5 | Fused custom W·H+ratio kernel (WH never materialized) | 9.3 s | bit-identical; single-GPU 14.1 → 10.6 s |
-| 6 | Host-init cache + sync removal + longest-first queue | 8.8 s | byte-identical |
-| 7 | Candidate-template disk cache + decode prefetch | 7.5 s | clip search 21.7 → 7.9 s |
-| 8 | Cross-candidate PFNMF batching + persistent scratch | 6.9 s | fixed two scheduling bugs found by measurement |
-| 9 | `--use_fast_math` | ~6.9 s | scores identical to 4 decimals |
-| — | 128×64 fused tile (Boehm-style) | — | **reverted**: measured neutral (H slabs already L2-resident) |
-| 10 | Log-frequency front end (367 bins, exact-translation shifts) | 3.2 s | gate MRR 0.354 → 0.363 |
-| 11 | K=32 default (sweep + full-benchmark confirmation) | **3.0 s** | benchmark MRR 0.214 vs 0.203 at K=40 |
-| 12 | FIL forest kernel: packed 16-byte nodes | — | 1.0 → 3.1 M rows/s; sklearn-exact |
+| 0 | Baseline (starting implementation) | 42.0 s | DTW dominated: one kernel launch per cell of the cost matrix (~325k launches per candidate) |
+| 1 | TF32 tensor-core matrix multiplies | 37.2 s | ran the NMF matrix multiplies on tensor cores; scores unchanged |
+| 2 | Persistent-band DTW kernel | 21.0 s | one block sweeps a whole alignment band in shared memory instead of a launch per cell — removed ~80 GB of memory traffic per candidate; scores unchanged |
+| 3 | Multi-GPU (one worker per device) | 12.8 s | candidates split across both GPUs; scores unchanged |
+| 4 | Simultaneous-update NMF | 9.3 s | update both NMF factors from one shared intermediate (3 matrix multiplies + 1 elementwise pass per iteration, was 4 + 2); accuracy improved |
+| — | Two-stage pitch-shift screening | — | **reverted** — pruning pitch hypotheses early hurt accuracy |
+| 5 | Fused W·H + ratio kernel | 9.3 s | compute and consume the largest NMF intermediate inside one kernel, never writing it to memory; scores unchanged |
+| 6 | Cached random init, fewer syncs | 8.8 s | reuse the seeded initialization across candidates; scores unchanged |
+| 7 | Candidate-template disk cache | 7.5 s | each library song's templates computed once and cached on disk |
+| 8 | Cross-candidate batching | 6.9 s | all candidates × 41 pitch shifts solved as one batched problem (no padding — every sub-problem is query-sized) |
+| 9 | Fast-math compiler flag | ~6.9 s | approximate reciprocals/divisions; scores unchanged to 4 decimals |
+| — | Larger fused-kernel tile | — | **reverted** — no measurable change |
+| 10 | Log-frequency front end | 3.2 s | pool the spectrogram to 367 log-spaced bins: ~5.6× less work downstream, and pitch shifts become exact integer row-shifts; accuracy improved |
+| 11 | Fewer NMF templates (K = 32, was 40) | **3.0 s** | same accuracy on the full benchmark, less work |
+| 12 | Packed-node forest kernel | — | forest inference: each tree node is one 16-byte struct = one memory load per visit (3× faster); output identical to the reference |
 
-Final-build kernel characterization (ncu/nsys; full counters and the idle
-decomposition in `plots/PERF-CHARACTERIZATION.md`):
+Final-build kernel characterization (full counters and the idle decomposition
+in `plots/PERF-CHARACTERIZATION.md`):
 
 | Kernel | share of scan | SM | DRAM | occupancy | bottleneck |
 |---|---:|---:|---:|---:|---|
@@ -357,32 +322,94 @@ decomposition in `plots/PERF-CHARACTERIZATION.md`):
 | cuBLAS TF32 GEMMs | 21.7% | 21–45% | 43–79% | — | bandwidth-bound; tensor pipes 32–46% = ceiling for these skinny shapes |
 | `forest_predict` | (own binary) | 4% | 35% | 82% | pure latency: 452 cyc/issue dependent loads — why packed nodes won 3× |
 
+The same profile, visualized (`plots/06_fil/`) — top kernels by GPU time, the
+same time grouped by pipeline stage, and the CUDA API calls by CPU time:
+
+![top kernels by total GPU time](plots/06_fil/kernels.png)
+
+![GPU time by category, with estimated idle](plots/06_fil/categories.png)
+
+![top CUDA API calls by CPU time](plots/06_fil/api_overhead.png)
+
 Residual single-GPU idle (~17% of the now-3-second scan): 6.1% pageable H2D
 staging, 3.7% one-time CUDA module load, ~6% sub-50 µs launch micro-gaps —
-not synchronization, not D2H.
+not synchronization, not D2H. The API view makes this concrete: the largest
+CPU-side cost is `cudaMemcpy` (the blocking host→device staging), not kernel
+work.
 
 ## Improvements
 
-Remaining items are small (full list: `TODO.md`; future accuracy roadmap
-with 18 ranked ideas: `docs/ACCURACY-OPTIMIZATIONS.md`). Headlines:
+The substantive work is done (see the sections above); what remains is small.
 
-- pinned staging buffers + async H2D for the measured 6.1% idle;
-- forest kernel: interleave 2–4 trees per thread to overlap latency chains;
-- synthetic training-data augmentation for the RF — the highest-leverage
-  accuracy idea (the classifier is data-starved: 0.30% positive rate);
-- user-marked query snippets (`--query-window`) and multiple DTW band
-  lengths;
-- location-level ("micro") evaluation per the paper.
+Engineering:
+- **Pinned staging buffers + async host→device copies** to reclaim the
+  measured ~6% single-GPU idle (see GPU Optimizations).
+- **Forest kernel**: walk 2–4 trees per thread to overlap the dependent-load
+  latency chains — modest upside on an already-19×-sklearn kernel.
+- **`--clip` mode** is implemented but its accuracy was never validated with a
+  real hand-trimmed clip (it is used only in the perf benchmarks).
+- Split `kernels.cu` / `cpu_pipeline.cpp` into per-stage files (cosmetic);
+  promote the literal-copy verification probes into `tools/verify_pair.py`.
+- Config knobs never swept: free-template count, DTW window length, faster
+  NMF iteration schedules.
 
-## Repo layout
+Accuracy (bigger, non-neural swings): a ranked roadmap of 18 ideas — synthetic
+training-data augmentation for the data-starved classifier (highest-leverage),
+Itakura–Saito NMF for buried samples, richer classifier features, user-marked
+query snippets (`--query-window`), config ensembling, and location-level
+("micro") evaluation — lives in `docs/ACCURACY-OPTIMIZATIONS.md`.
 
-```
-src/common/   audio I/O + shared types/params        PROPOSAL.md   proposal + timeline
-src/cpu/      CPU reference (4-decimal GPU parity)   docs/         paper + deep references
-src/gpu/      custom kernels + cuBLAS wrappers       TODO.md       remaining small items
-              + GPU pipeline + rf_infer              CLAUDE.md     operating notes + build log
-music/        song library                           build/        out-of-source build dir
-tests/        fixtures + verification ladder
-tools/        eval runner, RF trainer/exporter, pool analysis, sweep, plots, DATASET.md
-datasets/     sample100/ evaluation set (eval_pairs.csv ground truth + audio/)
-```
+## Errata
+
+### Correctness verification
+
+Beyond the benchmark, four end-to-end checks with known answers guard every
+change (`tests/run_ladder.sh`): (1) a song matches a copy of itself at rank 1,
+zero shift; (2) 8 s of song A spliced into song B is found at the splice point
+I chose; (3) the same splice sped up 6% is found at the predicted +1.0
+semitone; (4) Madonna's *Hung Up* ranks ABBA's *Gimme Gimme* #1. The CPU and
+GPU builds agree to 4 decimal places on all four. On the `music/` demo set the
+detector also gets *Lucid Dreams* → *Shape of My Heart* right and misses
+*Touch The Sky* → *Move On Up* (the true match is found but ranks #3 behind two
+sound-alikes — the failure class the random forest fixes on the benchmark).
+
+### Accuracy caveats (paper comparison)
+
+The F-measure comparison (75% vs the paper's 62.5%, both at the 10-candidate
+protocol) carries caveats: every Sample100 query has a sample, so recall is
+pinned at 100% and my precision equals top-1 accuracy; run conservatively the
+forest reaches 85–100% precision at 23–41% recall (`plots/pr_curve.png`). My
+decoys are other much-sampled songs — more confusable than the paper's random
+picks — and Sample100 skews toward short, chopped, heavily-produced samples.
+Beyond hit@1: hit@3 is 57.1%, MRR 0.557.
+
+### AI usage
+
+Built with substantial assistance from Claude Opus 4.8 and Fable 5 (briefly) — implementation,
+profiling analysis, and documentation — under continuous human direction and
+review. All design decisions, the accuracy/performance gates, and final
+verification were mine.
+
+### Code quality
+
+C++/CUDA follows the Google C++ Style Guide, enforced by the checked-in
+`.clang-format` (details in `docs/STYLE.md`). The CPU and GPU pipelines are
+held to 4-decimal score parity as a correctness contract, and the build is
+warning-clean under `-Wall -Wextra`.
+
+### Dataset & references
+
+- Algorithm: Gururani & Lerch, *Automatic Sample Detection in Polyphonic
+  Music*, ISMIR 2017.
+- Benchmark: **Sample100** (Van Balen, 2011); audio sourced from YouTube per
+  `tools/DATASET.md` (a few tracks were unavailable and excluded).
+
+### Further reading
+
+- `docs/TECHNICAL.md` — full design, parameters, and benchmark methodology.
+- `docs/ACCURACY-OPTIMIZATIONS.md` — the 18-idea accuracy roadmap.
+- `docs/gpu-library-vs-custom-kernels.md` — why cuFFT and cuBLAS are the only
+  library calls.
+- `CLAUDE.md` — the complete build log, with every measurement.
+- `plots/PERF-CHARACTERIZATION.md` — kernel-level profiling.
+

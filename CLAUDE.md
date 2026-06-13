@@ -10,7 +10,7 @@ custom CUDA kernels. Grading deliverables are in `README.md` (proposal, CPU demo
 submission with performance analysis). The plan of record is `PROPOSAL.md`; algorithm
 parameters and architecture live in `docs/TECHNICAL.md`; code style in `docs/STYLE.md`;
 the library-vs-custom kernel rationale in `docs/gpu-library-vs-custom-kernels.md`;
-test cases in `docs/TESTING.md`.
+test cases in the README (Evaluation + Errata).
 
 ## Execution environment
 
@@ -87,7 +87,7 @@ launch; device memory through `DeviceBuffer<T>`, no Thrust/CUB.
 - `src/cpu/` — CPU reference, stage-for-stage mirror of the GPU pipeline
 - `src/gpu/` — kernels.cu(h), gpu_pipeline.cu(h), gemm, gpu_detect, rf_infer
 - `tests/` — make_fixtures.sh + run_ladder.sh (4 structural gates)
-- `music/` — song library + queries; `docs/TESTING.md` maps queries to expected matches
+- `music/` — song library + queries; expected matches documented in the README
 - `tools/` — eval runner, RF trainer/exporter, pool/profile analysis, plots, scraper
 - `build/` — out-of-source build dir (not committed)
 

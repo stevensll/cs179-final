@@ -1,13 +1,14 @@
 # Technical Design
 
-Single source of truth for algorithm parameters, repo architecture, build, testing,
-and benchmark methodology. Algorithm follows Gururani & Lerch 2017
-(`Automatic-Sample-Detection-in-Polyphonic-Music.pdf` in this directory); the
-block-by-block paper ↔ code correspondence, with every deviation justified, is the
-mapping table in the README ("Implementation details") — this file does not
-duplicate it. Library-vs-custom kernel
-rationale: `gpu-library-vs-custom-kernels.md` (see its dated postscript). Test cases
-and current status: `TESTING.md`. History and measured numbers: CLAUDE.md build log.
+Deep reference for algorithm parameters, build, testing, and benchmark
+methodology (the README is the primary writeup). Algorithm follows Gururani &
+Lerch 2017 (`Automatic-Sample-Detection-in-Polyphonic-Music.pdf` in this
+directory); the block-by-block paper ↔ code correspondence, with every
+deviation justified, is the mapping table in the README ("Paper → GPU
+Mapping") — this file does not duplicate it. Library-vs-custom kernel
+rationale: `gpu-library-vs-custom-kernels.md` (see its dated postscript). Test
+cases and current status: the README (Evaluation + Errata). History and
+measured numbers: CLAUDE.md build log.
 
 ## Task formulation
 
@@ -21,7 +22,7 @@ candidate *songs*; we search for each library song's templates inside the *query
 Per pair, the candidate Sᵢ plays the paper's "sample/original" role (templates
 extracted from it) and the query Q plays the "song" role (PFNMF'd against those
 templates). The two structural deviations from the paper (full rationale in
-`PAPER-VS-OURS.md` and the README mapping table):
+the README's Paper → GPU Mapping section):
 
 - **Random-forest classifier trained on Sample100** (originally out of scope;
   added 2026-06-11): heuristic score normalization (pitch selectivity +
@@ -77,44 +78,13 @@ implements each block. Scoring summary (host code, `gpu_score_candidate` tail in
 4. `--clip` mode: when the query is a hand-trimmed segment that IS the suspected
    sample, there is no non-sample baseline for a dip to stand out from, so step 2's
    raw dip is replaced by the absolute normalized cost (min alone). Implemented;
-   not yet validated (TODO.md).
+   not yet validated (README Improvements).
 
 ## Repo layout
 
-```
-cs179-final/
-├── README.md              # final submission readme (per spec)
-├── PROPOSAL.md            # proposal + timeline (as proposed; see README for as-built)
-├── CLAUDE.md              # operating notes / build log (measured numbers live here)
-├── TODO.md                # cleanup + improvements ledger
-├── Makefile               # thin wrapper: configure + build via CMake
-├── CMakeLists.txt
-├── docs/                  # paper PDF, this file, PAPER-VS-OURS.md, STYLE.md,
-│                          #   TESTING.md, kernel-scope doc
-├── music/                 # song library + queries (WAVs)
-├── datasets/sample100/    # Sample100 evaluation set: eval_pairs.csv + audio/
-├── tools/                 # visualize_match.py, scrape_sample100.py,
-│                          #   eval_sample100.py, DATASET.md
-├── src/
-│   ├── common/            # compiles WITHOUT CUDA: audio.{hpp,cpp} (WAV load,
-│   │                      #   downmix, RMS, 2:1 decimator), params.hpp
-│   ├── cpu/               # cpu_demo.cpp + cpu_pipeline.{hpp,cpp} (GPU-parity mirror)
-│   └── gpu/               # gpu_detect.cu, gpu_pipeline.cu(h) (orchestration),
-│                          #   kernels.cu(h) (all custom kernels), gemm.cu(h)
-│                          #   (cuBLAS wrappers), device_buffer.cuh, error_check.cuh
-└── build/                 # out-of-source build dir (not committed)
-```
-
-(`tests/` holds make_fixtures.sh + run_ladder.sh — the scripted verification
-ladder. Splitting `kernels.cu` / `cpu_pipeline.cpp` into per-stage files is a
-TODO.md cleanup item.)
-
-Executables (full flags table in README "Usage"):
-- `gpu_detect` — the GPU detector; ranked library with shift and matched
-  locations; `--features` switches to classifier-feature CSV output;
-  `rf_infer` — GPU forest inference + sklearn parity check.
-- `cpu_demo` — single-threaded CPU mirror of the identical algorithm (same
-  stages, same seeds; 4-decimal score parity on the verification gates).
+See the README's **Repo layout** section for the file tree and the
+executables' flags. (`tests/` holds `make_fixtures.sh` + `run_ladder.sh`; the
+per-stage split of `kernels.cu` / `cpu_pipeline.cpp` is a known cleanup item.)
 
 ## Build
 
@@ -132,18 +102,18 @@ Executables (full flags table in README "Usage"):
 - Top-level `Makefile` wrapper: `make` = configure (if needed) + build into `build/`;
   `make clean` wipes `build/`. Graders never need to know CMake.
 - There are no build options/flags; in particular, no separate cuBLAS-baseline NMF
-  build exists (the three-way NMF benchmark is future work, TODO.md — the custom
+  build exists (the three-way NMF benchmark is future work — the custom
   GEMM would have to be reimplemented from the v1 design, see CLAUDE.md log).
 
 ## Testing
 
-Current practice (status in `TESTING.md`):
+Current practice:
 
 - **Verification ladder**, re-run after every algorithm/scoring change: self-match
   canary (song vs itself → rank 1 @ +0.00 st, aligned locations), two synthetic
   controls with exactly predictable answers (8 s insert → dip @ +0.00 st at the
   insert location; same insert resampled +6% → dip @ +1.00 st, theory +1.01), and
-  the real pairs in `TESTING.md`.
+  the real pairs (see the README's Errata).
 - **CPU/GPU parity holds**: the CPU reference mirrors the production pipeline
   stage-for-stage (same seeds) and reproduces GPU scores to 4 printed decimals
   on the ladder gates, despite TF32 + fast-math on the GPU side.
@@ -178,7 +148,7 @@ warmup; include H2D/D2H in end-to-end numbers (honest accounting) and report
 kernel-only times separately. Profiling via Nsight Compute CLI (`ncu`) if present;
 otherwise `--generate-line-info` + compute-sanitizer. Planned-but-not-done: per-stage
 CPU/GPU table and the three-way NMF benchmark (naive CPU / cuBLAS GEMMs / fused
-custom kernels) — TODO.md.
+custom kernels).
 
 ## GPU design notes (summary)
 
@@ -208,4 +178,4 @@ GEMMs moved to cuBLAS on 2026-06-10). As built:
   per band × shift from the DTW kernel).
 - Remaining performance headroom is small and measured —
   plots/PERF-CHARACTERIZATION.md §6 (pinned-staging H2D, forest tree
-  interleaving) and TODO.md.
+  interleaving).
