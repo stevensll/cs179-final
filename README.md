@@ -54,7 +54,7 @@ build/         out-of-source build output (not committed)
 * CUDA toolkit (12.x) 
 * CMake ≥ 3.24 
 * libsndfile dev headers
-*  NVIDIA GPU - this project is compiled for the Titan's architecture; developed on 2× RTX A5000
+* NVIDIA GPU — compiled for the host GPU architecture (`CMAKE_CUDA_ARCHITECTURES native`; developed on 2× RTX A5000, sm_86)
 
 ### Build
 
@@ -247,7 +247,7 @@ the dense DTW band sweep (D1, D5), and ranking adds the pitch-selectivity and
 hypothesis-distribution calibration the paper doesn't need (A1, A2). The rest
 are accuracy refinements — a finer pitch grid, the log-frequency axis, the
 regularized correlation (D3, D6, D4) — plus the GPU rewrites in the next
-section. Every change had to pass the verification checks and not regress the
+section. Every change had to pass the verification ladder and not regress the
 benchmark; several candidates (early pitch-shift pruning, a larger fused-kernel
 tile, fewer NMF iterations) were tried and reverted on exactly those gates.
 
