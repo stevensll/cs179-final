@@ -9,7 +9,7 @@ In the music industry, a *sample* is a snippet of an older song that has been re
 
 While song identification algorithms like Shazam work very well, there is currently no state of the art sample detector. This is because although samples may sound fairly obvious to a listener, they are often pitch shifted, time dilated, or altered every so slightly that computationally makes it much different than the original song it samples.
 
-Building on Gururani and Lerch's algorithm and using the 100-song labeled Sample100 dataset, I correctly identify the sampled source as the #1 match for **50% of queries** (ranking against all 64 candidate originals — random chance is 1.6%), and reach an **F-measure of 75%** under the paper's own protocol versus their 62.5% — on a GPU pipeline that runs the entire dataset in **~13 minutes** (versus an estimated ~8.5 hours unoptimized). This successfully proves the concept of the paper.
+Building on Gururani and Lerch's algorithm and using the 100-song labeled Sample100 dataset, I correctly identify the sampled source as the #1 match for **50% of queries** (ranking against all 64 candidate originals — random chance is 1.6%), and reach an **F-measure of 75%** under the paper's own protocol versus their 62.5% — on a GPU pipeline that runs the entire dataset in **~13–20 minutes** (versus an estimated ~8.5 hours unoptimized). This successfully proves the concept of the paper.
 
 **Please see below documentation for all information related to the project.**
 
@@ -101,8 +101,8 @@ GPU pipeline** — same stages, same seeded initializations.
 # One query against the Sample100 originals (the 64-song benchmark library):
 ./build/gpu_detect datasets/sample100/audio/T001.wav datasets/sample100/library
 
-# The entire Sample100 benchmark — every query over the whole dataset (~13 min, 2 GPUs):
-python3 tools/eval_sample100.py --gpus 2 --iters 60
+# The entire Sample100 benchmark (ranking stage only — see Reproducing for the random forest):
+python3 tools/eval_sample100.py --gpus 2 --iters 60   # ~13–20 min, 2 GPUs
 ```
 
 ### Inspecting a match
@@ -118,20 +118,31 @@ python3 tools/visualize_match.py "music/Gimme Gimme.wav" 96 "music/Hung Up.wav" 
 
 ### Reproducing the evaluation
 
-One-time dataset setup (Sample100 audio via YouTube): `tools/DATASET.md`.
-Then:
+One-time dataset setup (Sample100 audio via YouTube): `tools/DATASET.md`. The
+evaluation has two tiers — the DTW ranking stage, and the random-forest stage
+that produces the headline numbers. **`eval_sample100.py` only runs Tier 1**;
+the 50% / F-75% result comes from Tier 2 (`train_rf.py`).
 
+**Tier 1 — ranking only** (scores hit@1 11.4% / MRR 0.214):
 ```bash
-python3 tools/eval_sample100.py --gpus 2 --iters 60   # full benchmark, ~13 min
-python3 tools/sweep_configs.py                        # config-matrix Pareto sweep
+python3 tools/eval_sample100.py --gpus 2 --iters 60   # full benchmark, ~13–20 min
+```
 
-# classifier stage (feature corpus ~30 min on 2 GPUs, training ~40 min):
-#   per query: ./build/gpu_detect --features datasets/sample100/features/<q>.csv ...
-python3 tools/train_rf.py        # train + leakage-safe eval + persist OOF scores
-python3 tools/pool_analysis.py   # 10-pool protocol + P/R curve (no retrain needed)
-python3 tools/export_forest.py   # flat forest + verification set for the GPU kernel
+**Tier 2 — the random forest** (lifts hit@1 to 50% and F-measure to 75%):
+```bash
+# (a) extract the 13 path features for every query → datasets/sample100/features/*.csv
+#     (~30 min on 2 GPUs; one run per query listed in datasets/sample100/eval_pairs.csv:
+#      ./build/gpu_detect --features datasets/sample100/features/<q>.csv <q>.wav datasets/sample100/library)
+# (b) train + leakage-safe evaluation — prints the reranked hit@1 / hit@3 / MRR:
+python3 tools/train_rf.py
+# (c) optional — paper-protocol metrics + P/R curve (instant; reuses saved scores),
+#     then export the forest and verify the GPU kernel matches scikit-learn:
+python3 tools/pool_analysis.py
+python3 tools/export_forest.py
 ./build/rf_infer plots/rf/forest.bin plots/rf/verify_rows.f32 plots/rf/verify_probs.f32 13
 ```
+
+(`tools/sweep_configs.py` runs the optional config-matrix Pareto sweep.)
 
 ## Evaluation
 
@@ -180,7 +191,7 @@ whole dataset would take roughly a week.
 |---|---:|---:|
 | Accuracy | identical to GPU (below) | — |
 | One search, matched config | 47.8 s | ~1 s |
-| Full Sample100 benchmark | ~1 week (not run) | ~13 min |
+| Full Sample100 benchmark | ~1 week (not run) | ~13–20 min |
 
 ## GPU Results
 
@@ -191,7 +202,7 @@ against all 64 candidate originals:
 |---|---|
 | **hit@1** (true original ranked #1) | **50.0%** — 11.4% without the classifier stage |
 | **F-measure** | **66.7%** |
-| Full benchmark runtime (2× A5000) | **~13 min** |
+| Full benchmark runtime (2× A5000) | **~13–20 min** |
 
 Under the paper's easier 10-candidate protocol, my F-measure is **75.0%**
 vs the paper's **62.5%** — the concept reproduced and then some (the full
@@ -282,8 +293,12 @@ Net effect, end to end:
 | 5-candidate full-song scan | 42.0 s | **3.0 s** | **14×** |
 | full-song query vs 64-candidate library | ~340 s | **19.3 s** | **18×** |
 | 15 s clip vs 64-candidate library | 21.7 s | **2.3 s** | **9.4×** |
-| full 70-query benchmark | ~8.5 h (est.) | **~13 min** | **~40×** |
+| full 70-query benchmark | ~8.5 h (est.) | **~13–20 min** | **~25–40×** |
 | forest inference (200 trees) | 0.16 M rows/s (sklearn, 32 cores) | **3.1 M rows/s** (1 GPU) | **19×** |
+
+Per-workload rows are warm-cache on a quiet box; the full-benchmark wall-clock
+varies with shared-box GPU load (warm/quiet ~13 min, a verification run under
+load measured ~21 min).
 
 ![optimization progression: per-iteration speedup with the accuracy gate overlaid](plots/speedup_progression.png)
 
